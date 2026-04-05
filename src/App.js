@@ -1,0 +1,463 @@
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import './App.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
+const AGENTS = {
+  jarvis: {
+    name: 'Jarvis',
+    emoji: '🤖',
+    model: 'qwen2.5-coder:7b (local)',
+    description: 'Fast local AI for quick questions, home control, and daily tasks',
+    placeholder: 'Command ZeroClaw...',
+  },
+  friday: {
+    name: 'Friday',
+    emoji: '⚡',
+    model: 'claude-haiku (cloud)',
+    description: 'Powerful cloud AI for complex coding, analysis, and deep questions',
+    placeholder: 'Ask Friday anything...',
+  },
+};
+
+// ── Code block with copy button ───────────────────────────────────────────────
+
+function CodeBlock({ language, children }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(children).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        <span className="code-lang">{language || 'code'}</span>
+        <button className="copy-btn" onClick={handleCopy}>{copied ? '✓ Copied' : 'Copy'}</button>
+      </div>
+      <SyntaxHighlighter
+        language={language || 'text'}
+        style={vscDarkPlus}
+        customStyle={{ margin: 0, borderRadius: '0 0 8px 8px', fontSize: '13px', background: '#0a0a0a' }}
+        PreTag="div"
+      >
+        {children}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
+
+const markdownComponents = {
+  code({ node, inline, className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || '');
+    const codeStr = String(children).replace(/\n$/, '');
+    if (!inline) return <CodeBlock language={match ? match[1] : ''}>{codeStr}</CodeBlock>;
+    return <code className="inline-code" {...props}>{children}</code>;
+  },
+};
+
+// ── Parse [DOWNLOAD: filename](url) pattern ───────────────────────────────────
+
+function parseDownloadLink(content) {
+  const match = content.match(/\[DOWNLOAD: ([^\]]+)\]\(([^)]+)\)/);
+  if (match) {
+    return {
+      text: content.replace(/\[DOWNLOAD: [^\]]+\]\([^)]+\)/, '').trimEnd(),
+      filename: match[1],
+      url: match[2],
+    };
+  }
+  return { text: content, filename: null, url: null };
+}
+
+// ── Assistant message ─────────────────────────────────────────────────────────
+
+function AssistantMessage({ content }) {
+  const { text, filename, url } = parseDownloadLink(content);
+  return (
+    <div className="message-content markdown-content">
+      <ReactMarkdown components={markdownComponents}>{text}</ReactMarkdown>
+      {url && (
+        <a href={url} download={filename} className="download-btn">⬇ Download {filename}</a>
+      )}
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [messages, setMessages]           = useState([]);
+  const [input, setInput]                 = useState('');
+  const [agent, setAgent]                 = useState('jarvis');
+  const [isLoading, setIsLoading]         = useState(false);
+  const [chats, setChats]                 = useState([]);
+  const [currentChat, setCurrentChat]     = useState(null);
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [renamingChat, setRenamingChat]   = useState(null);
+  const [renameValue, setRenameValue]     = useState('');
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { fetchChats(); }, []);
+
+  const fetchChats = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/sessions`);
+      setChats(res.data.sessions || []);
+    } catch (err) { console.error('Failed to fetch chats:', err); }
+  };
+
+  const startNewChat = async () => {
+    try { await axios.post(`${API_URL}/sessions/reset`); } catch (err) {}
+    setMessages([]);
+    setCurrentChat(null);
+    setSidebarOpen(false);
+  };
+
+  const switchChat = async (name) => {
+    if (name === currentChat) { setSidebarOpen(false); return; }
+    try {
+      const res = await axios.post(`${API_URL}/sessions/load`, { name });
+      setCurrentChat(name);
+      const history = res.data.history || [];
+      setMessages(history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: h.content,
+        agent: h.role === 'assistant' ? (name.includes('friday') ? 'Friday' : 'Jarvis') : undefined,
+        model: h.role === 'assistant' ? AGENTS[agent].model : undefined,
+      })));
+      await fetchChats();
+      setSidebarOpen(false);
+    } catch (err) { console.error('Failed to switch chat:', err); }
+  };
+
+  const deleteChat = async (name, e) => {
+    e.stopPropagation();
+    try {
+      await axios.post(`${API_URL}/sessions/delete`, { name });
+      if (name === currentChat) { setMessages([]); setCurrentChat(null); }
+      await fetchChats();
+    } catch (err) {}
+  };
+
+  const startRename = (name, e) => {
+    e.stopPropagation();
+    setRenamingChat(name);
+    setRenameValue(name);
+  };
+
+  const cancelRename = () => { setRenamingChat(null); setRenameValue(''); };
+
+  const confirmRename = async (oldName) => {
+    const newName = renameValue.trim();
+    if (!newName || newName === oldName) { cancelRename(); return; }
+    try {
+      await axios.post(`${API_URL}/sessions/rename`, { old_name: oldName, new_name: newName });
+      if (currentChat === oldName) setCurrentChat(newName);
+      setRenamingChat(null);
+      setRenameValue('');
+      await fetchChats();
+    } catch (err) { cancelRename(); }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return;
+    const userText = input.trim();
+    setMessages(prev => [...prev, { role: 'user', content: userText }]);
+    setInput('');
+    setIsLoading(true);
+    const routedMessage = agent === 'friday' ? `ask friday ${userText}` : userText;
+    try {
+      const response = await axios.post(`${API_URL}/ask`, { message: routedMessage });
+      const data = response.data;
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response,
+        agent: data.agent || AGENTS[agent].name,
+        model: AGENTS[agent].model,
+        web_search_used: data.web_search_used,
+        memory_used: data.memory_used,
+        context_used: data.context_used,
+        balance_fetched: data.balance_fetched,
+        file_generated: data.file_generated,
+      }]);
+      if (data.session_name) setCurrentChat(data.session_name);
+      await fetchChats();
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'error',
+        content: "Failed to reach ZeroClaw router. Make sure it's running on port 8081.",
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const switchAgent = (newAgent) => {
+    if (newAgent === agent) return;
+    setAgent(newAgent);
+    setMessages(prev => [...prev, { role: 'system', content: `Switched to ${AGENTS[newAgent].name}` }]);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const diff = Date.now() - d;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return d.toLocaleDateString();
+  };
+
+  const currentAgent = AGENTS[agent];
+
+  return (
+    <div className="shell">
+
+      {/* ── Ambient background glows ── */}
+      <div className="glow-primary" />
+      <div className="glow-tertiary" />
+
+      {/* ── Mobile overlay — clicking it closes the sidebar ── */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* ── SIDEBAR ── */}
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+
+        {/* Brand */}
+        <div className="sidebar-brand">
+          <div className="brand-icon">Z</div>
+          <div>
+            <div className="brand-name">Chats</div>
+            <div className="brand-sub">AI Assistant</div>
+          </div>
+        </div>
+
+        {/* New Chat */}
+        <button className="new-chat-btn" onClick={startNewChat}>
+          <span className="material-symbols-outlined">add</span>
+          New Chat
+        </button>
+
+        {/* Chat list */}
+        <div className="chat-list-label">Recent Chats</div>
+        <nav className="chat-list">
+          {chats.length === 0 && (
+            <div className="chat-empty">No saved chats yet</div>
+          )}
+          {chats.map((s) => (
+            <div
+              key={s.name}
+              className={`chat-item ${s.name === currentChat ? 'active' : ''}`}
+              onClick={() => renamingChat !== s.name && switchChat(s.name)}
+            >
+              <span className="material-symbols-outlined chat-item-icon">chat_bubble</span>
+
+              <div className="chat-item-info">
+                {renamingChat === s.name ? (
+                  <input
+                    autoFocus
+                    className="chat-rename-input"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') confirmRename(s.name);
+                      if (e.key === 'Escape') cancelRename();
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <>
+                    <span className="chat-name">{s.name}</span>
+                    <span className="chat-date">{formatDate(s.updated_at)}</span>
+                  </>
+                )}
+              </div>
+
+              <div className="chat-actions">
+                {renamingChat !== s.name && (
+                  <button className="chat-action-btn" title="Rename" onClick={(e) => startRename(s.name, e)}>
+                    <span className="material-symbols-outlined">edit</span>
+                  </button>
+                )}
+                <button className="chat-action-btn chat-delete-btn" onClick={(e) => deleteChat(s.name, e)}>
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* User section at bottom */}
+        <div className="sidebar-user">
+          <div className="user-avatar">A</div>
+          <div>
+            <div className="user-name">Areccus</div>
+            <div className="user-model">{currentAgent.model}</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── MAIN ── */}
+      <main className="main">
+
+        {/* Fixed top bar */}
+        <header className="top-bar">
+          {/* Hamburger — mobile only */}
+          <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+
+          <div className="topbar-title">ZeroClaw</div>
+
+          {/* Agent switcher pills */}
+          <div className="agent-pills">
+            {Object.entries(AGENTS).map(([key, info]) => (
+              <button
+                key={key}
+                className={`agent-pill ${agent === key ? 'active' : ''}`}
+                onClick={() => switchAgent(key)}
+              >
+                {info.emoji} {info.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <button className="icon-btn" onClick={() => setMessages([])} title="Clear chat">
+            <span className="material-symbols-outlined">delete_sweep</span>
+          </button>
+        </header>
+
+        {/* Scrollable chat area */}
+        <section className="messages-area">
+          <div className="messages-inner">
+
+            {/* Empty state */}
+            {messages.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-logo">{currentAgent.emoji}</div>
+                <h2>{currentAgent.name}</h2>
+                <p>{currentAgent.description}</p>
+                <div className="agent-cards">
+                  {Object.entries(AGENTS).map(([key, info]) => (
+                    <div
+                      key={key}
+                      className={`agent-card ${agent === key ? 'active' : ''}`}
+                      onClick={() => switchAgent(key)}
+                    >
+                      <div className="agent-card-title">{info.emoji} {info.name}</div>
+                      <div className="agent-card-model">{info.model}</div>
+                      <div className="agent-card-desc">{info.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Messages */}
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`msg-row msg-${msg.role}`}>
+
+                {/* Assistant label */}
+                {msg.role === 'assistant' && (
+                  <div className="msg-label">
+                    <div className="msg-label-icon">
+                      <span className="material-symbols-outlined">smart_toy</span>
+                    </div>
+                    <span className="msg-label-text">{msg.agent || currentAgent.name} Intelligence</span>
+                    {msg.model && <span className="model-pill">{msg.model}</span>}
+                    <div className="meta-badges">
+                      {msg.web_search_used  && <span className="meta-badge search">🔍 web</span>}
+                      {msg.memory_used      && <span className="meta-badge memory">🧠 memory</span>}
+                      {msg.context_used     && <span className="meta-badge ctx">📋 context</span>}
+                      {msg.balance_fetched  && <span className="meta-badge balance">💳 balance</span>}
+                      {msg.file_generated   && <span className="meta-badge file">📄 file</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bubble */}
+                {msg.role === 'assistant' && (
+                  <div className="bubble bubble-assistant">
+                    <AssistantMessage content={msg.content} />
+                  </div>
+                )}
+                {msg.role === 'user' && (
+                  <div className="bubble bubble-user">{msg.content}</div>
+                )}
+                {msg.role === 'error' && (
+                  <div className="bubble bubble-error">{msg.content}</div>
+                )}
+                {msg.role === 'system' && (
+                  <div className="system-msg">{msg.content}</div>
+                )}
+              </div>
+            ))}
+
+            {/* Typing indicator */}
+            {isLoading && (
+              <div className="msg-row msg-assistant">
+                <div className="msg-label">
+                  <div className="msg-label-icon">
+                    <span className="material-symbols-outlined">smart_toy</span>
+                  </div>
+                  <span className="msg-label-text">{currentAgent.name} Intelligence</span>
+                </div>
+                <div className="bubble bubble-assistant">
+                  <div className="typing">
+                    <span /><span /><span />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+        </section>
+
+        {/* Floating input pill */}
+        <div className="input-area">
+          <div className="input-pill-wrap">
+            <div className="input-pill">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={currentAgent.placeholder}
+                rows="1"
+                disabled={isLoading}
+                className="pill-textarea"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={isLoading || !input.trim()}
+                className="send-btn"
+              >
+                {isLoading
+                  ? <span className="send-spinner" />
+                  : <span className="material-symbols-outlined">arrow_upward</span>
+                }
+              </button>
+            </div>
+            <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+export default App;
