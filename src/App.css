@@ -316,6 +316,28 @@ body {
 .chat-action-btn:hover { background: var(--surface-mid); color: var(--text); }
 .chat-delete-btn:hover { background: var(--red-dim); color: var(--red); }
 
+/* ── SWIPE-TO-DELETE ────────────────────────────────────────── */
+
+.chat-item-outer {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.chat-delete-reveal {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 70px;
+  background: #ff3b30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+}
+
 .chat-rename-input {
   width: 100%;
   padding: 2px 6px;
@@ -819,6 +841,26 @@ body {
 
 .send-btn .material-symbols-outlined { font-size: 18px; }
 
+.stop-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #ff3b30;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--ease);
+  box-shadow: 0 4px 18px rgba(255,59,48,0.4);
+}
+
+.stop-btn:hover { background: #ff6961; transform: scale(1.06); }
+.stop-btn:active { transform: scale(0.95); }
+.stop-btn .material-symbols-outlined { font-size: 18px; font-variation-settings: 'FILL' 1; }
+
 .send-spinner {
   width: 16px;
   height: 16px;
@@ -959,6 +1001,46 @@ body {
   border-color: rgba(170,199,255,0.38);
   transform: translateY(-1px);
   box-shadow: 0 4px 18px var(--primary-glow);
+}
+
+/* ── MARKDOWN LINKS ─────────────────────────────────────────── */
+
+.md-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(10, 132, 255, 0.35);
+  padding-bottom: 1px;
+  transition: color var(--ease), border-color var(--ease);
+}
+
+.md-link:hover {
+  color: #5aabff;
+  border-bottom-color: rgba(90, 171, 255, 0.7);
+}
+
+/* ── IMAGE RESULTS GRID ─────────────────────────────────────── */
+
+.image-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.search-image {
+  width: 140px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: opacity var(--ease), transform var(--ease);
+  cursor: pointer;
+}
+
+.search-image:hover {
+  opacity: 0.85;
+  transform: scale(1.03);
 }
 
 /* ── RESPONSIVE TWEAKS ──────────────────────────────────────── */

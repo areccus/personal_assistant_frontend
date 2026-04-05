@@ -13,7 +13,7 @@ const AGENTS = {
     emoji: '🤖',
     model: 'qwen2.5-coder:7b (local)',
     description: 'Fast local AI for quick questions, home control, and daily tasks',
-    placeholder: 'Command ZeroClaw...',
+    placeholder: 'Ask Jarvis anything...',
   },
   friday: {
     name: 'Friday',
@@ -58,6 +58,13 @@ const markdownComponents = {
     if (!inline) return <CodeBlock language={match ? match[1] : ''}>{codeStr}</CodeBlock>;
     return <code className="inline-code" {...props}>{children}</code>;
   },
+  a({ href, children }) {
+    return (
+      <a href={href} className="md-link" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  },
 };
 
 // ── Parse [DOWNLOAD: filename](url) pattern ───────────────────────────────────
@@ -76,7 +83,7 @@ function parseDownloadLink(content) {
 
 // ── Assistant message ─────────────────────────────────────────────────────────
 
-function AssistantMessage({ content }) {
+function AssistantMessage({ content, image_urls }) {
   const { text, filename, url } = parseDownloadLink(content);
   return (
     <div className="message-content markdown-content">
@@ -84,6 +91,109 @@ function AssistantMessage({ content }) {
       {url && (
         <a href={url} download={filename} className="download-btn">⬇ Download {filename}</a>
       )}
+      {image_urls && image_urls.length > 0 && (
+        <div className="image-results">
+          {image_urls.map((src, i) => (
+            <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+              <img
+                src={src}
+                alt={`result ${i + 1}`}
+                className="search-image"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Swipe-to-delete chat item ─────────────────────────────────────────────────
+
+function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
+                    onSwitch, onDelete, onStartRename, onConfirmRename, onCancelRename, formatDate }) {
+  const [dragX, setDragX]     = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startX   = useRef(null);
+  const THRESHOLD = 130;
+
+  const dragStart = (e) => {
+    if (renamingChat === s.name) return;
+    startX.current = e.touches ? e.touches[0].clientX : e.clientX;
+    setDragging(true);
+  };
+
+  const dragMove = (e) => {
+    if (!dragging || startX.current === null) return;
+    const x     = e.touches ? e.touches[0].clientX : e.clientX;
+    const delta = startX.current - x;
+    setDragX(delta > 0 ? Math.min(delta, THRESHOLD + 30) : 0);
+  };
+
+  const dragEnd = () => {
+    if (dragX >= THRESHOLD) onDelete(s.name);
+    else setDragX(0);
+    setDragging(false);
+    startX.current = null;
+  };
+
+  const progress = Math.min(dragX / THRESHOLD, 1);
+
+  return (
+    <div className="chat-item-outer">
+      {/* Red reveal behind the item */}
+      <div className="chat-delete-reveal" style={{ opacity: progress }}>
+        <span className="material-symbols-outlined"
+              style={{ fontSize: dragX > 80 ? '22px' : '16px', transition: 'font-size 0.15s' }}>
+          close
+        </span>
+      </div>
+
+      {/* The draggable row */}
+      <div
+        className={`chat-item ${s.name === currentChat ? 'active' : ''}`}
+        style={{
+          transform:  `translateX(-${dragX}px)`,
+          transition: dragging ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          cursor:     dragging ? 'grabbing' : 'pointer',
+          userSelect: 'none',
+        }}
+        onMouseDown={dragStart} onMouseMove={dragMove}
+        onMouseUp={dragEnd}     onMouseLeave={dragEnd}
+        onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd}
+        onClick={() => { if (dragX < 5 && renamingChat !== s.name) onSwitch(s.name); }}
+      >
+        <span className="material-symbols-outlined chat-item-icon">chat_bubble</span>
+
+        <div className="chat-item-info">
+          {renamingChat === s.name ? (
+            <input
+              autoFocus
+              className="chat-rename-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter')  onConfirmRename(s.name);
+                if (e.key === 'Escape') onCancelRename();
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <>
+              <span className="chat-name">{s.name}</span>
+              <span className="chat-date">{formatDate(s.updated_at)}</span>
+            </>
+          )}
+        </div>
+
+        {renamingChat !== s.name && (
+          <button className="chat-action-btn" title="Rename"
+                  onClick={(e) => { e.stopPropagation(); onStartRename(s.name, e); }}>
+            <span className="material-symbols-outlined">edit</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -101,6 +211,7 @@ function App() {
   const [renamingChat, setRenamingChat]   = useState(null);
   const [renameValue, setRenameValue]     = useState('');
   const messagesEndRef = useRef(null);
+  const abortRef       = useRef(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { fetchChats(); }, []);
@@ -165,15 +276,30 @@ function App() {
     } catch (err) { cancelRename(); }
   };
 
+  const cancelRequest = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
     const userText = input.trim();
     setMessages(prev => [...prev, { role: 'user', content: userText }]);
     setInput('');
     setIsLoading(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const routedMessage = agent === 'friday' ? `ask friday ${userText}` : userText;
     try {
-      const response = await axios.post(`${API_URL}/ask`, { message: routedMessage });
+      const response = await axios.post(
+        `${API_URL}/ask`,
+        { message: routedMessage },
+        { signal: controller.signal }
+      );
       const data = response.data;
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -185,16 +311,23 @@ function App() {
         context_used: data.context_used,
         balance_fetched: data.balance_fetched,
         file_generated: data.file_generated,
+        image_urls: data.image_urls || [],
       }]);
       if (data.session_name) setCurrentChat(data.session_name);
       await fetchChats();
     } catch (error) {
-      setMessages(prev => [...prev, {
-        role: 'error',
-        content: "Failed to reach ZeroClaw router. Make sure it's running on port 8081.",
-      }]);
+      if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+        // Pull the user message back out so they can edit and resend
+        setMessages(prev => prev.slice(0, -1));
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'error',
+          content: "Failed to reach ZeroClaw router. Make sure it's running on port 8081.",
+        }]);
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -257,45 +390,20 @@ function App() {
             <div className="chat-empty">No saved chats yet</div>
           )}
           {chats.map((s) => (
-            <div
+            <ChatItem
               key={s.name}
-              className={`chat-item ${s.name === currentChat ? 'active' : ''}`}
-              onClick={() => renamingChat !== s.name && switchChat(s.name)}
-            >
-              <span className="material-symbols-outlined chat-item-icon">chat_bubble</span>
-
-              <div className="chat-item-info">
-                {renamingChat === s.name ? (
-                  <input
-                    autoFocus
-                    className="chat-rename-input"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') confirmRename(s.name);
-                      if (e.key === 'Escape') cancelRename();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <>
-                    <span className="chat-name">{s.name}</span>
-                    <span className="chat-date">{formatDate(s.updated_at)}</span>
-                  </>
-                )}
-              </div>
-
-              <div className="chat-actions">
-                {renamingChat !== s.name && (
-                  <button className="chat-action-btn" title="Rename" onClick={(e) => startRename(s.name, e)}>
-                    <span className="material-symbols-outlined">edit</span>
-                  </button>
-                )}
-                <button className="chat-action-btn chat-delete-btn" onClick={(e) => deleteChat(s.name, e)}>
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-            </div>
+              s={s}
+              currentChat={currentChat}
+              renamingChat={renamingChat}
+              renameValue={renameValue}
+              setRenameValue={setRenameValue}
+              onSwitch={switchChat}
+              onDelete={(name) => deleteChat(name, { stopPropagation: () => {} })}
+              onStartRename={startRename}
+              onConfirmRename={confirmRename}
+              onCancelRename={cancelRename}
+              formatDate={formatDate}
+            />
           ))}
         </nav>
 
@@ -334,9 +442,9 @@ function App() {
             ))}
           </div>
 
-          {/* Actions */}
-          <button className="icon-btn" onClick={() => setMessages([])} title="Clear chat">
-            <span className="material-symbols-outlined">delete_sweep</span>
+          {/* New chat shortcut in topbar */}
+          <button className="icon-btn" onClick={startNewChat} title="New chat">
+            <span className="material-symbols-outlined">edit_note</span>
           </button>
         </header>
 
@@ -391,7 +499,7 @@ function App() {
                 {/* Bubble */}
                 {msg.role === 'assistant' && (
                   <div className="bubble bubble-assistant">
-                    <AssistantMessage content={msg.content} />
+                    <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
                   </div>
                 )}
                 {msg.role === 'user' && (
@@ -440,16 +548,15 @@ function App() {
                 disabled={isLoading}
                 className="pill-textarea"
               />
-              <button
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
-                className="send-btn"
-              >
-                {isLoading
-                  ? <span className="send-spinner" />
-                  : <span className="material-symbols-outlined">arrow_upward</span>
-                }
-              </button>
+              {isLoading ? (
+                <button onClick={cancelRequest} className="stop-btn">
+                  <span className="material-symbols-outlined">stop</span>
+                </button>
+              ) : (
+                <button onClick={sendMessage} disabled={!input.trim()} className="send-btn">
+                  <span className="material-symbols-outlined">arrow_upward</span>
+                </button>
+              )}
             </div>
             <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
           </div>
