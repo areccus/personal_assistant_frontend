@@ -312,6 +312,10 @@ function App() {
         balance_fetched: data.balance_fetched,
         file_generated: data.file_generated,
         image_urls: data.image_urls || [],
+        memory_auto_saved: data.memory_auto_saved,
+        memory_fact: data.memory_fact,
+        history_searched: data.history_searched,
+        history_results: data.history_results || 0,
       }]);
       if (data.session_name) setCurrentChat(data.session_name);
       await fetchChats();
@@ -487,11 +491,13 @@ function App() {
                     <span className="msg-label-text">{msg.agent || currentAgent.name} Intelligence</span>
                     {msg.model && <span className="model-pill">{msg.model}</span>}
                     <div className="meta-badges">
-                      {msg.web_search_used  && <span className="meta-badge search">🔍 web</span>}
-                      {msg.memory_used      && <span className="meta-badge memory">🧠 memory</span>}
-                      {msg.context_used     && <span className="meta-badge ctx">📋 context</span>}
-                      {msg.balance_fetched  && <span className="meta-badge balance">💳 balance</span>}
-                      {msg.file_generated   && <span className="meta-badge file">📄 file</span>}
+                      {msg.web_search_used   && <span className="meta-badge search">🔍 web</span>}
+                      {msg.memory_used       && <span className="meta-badge memory">🧠 memory</span>}
+                      {msg.context_used      && <span className="meta-badge ctx">📋 context</span>}
+                      {msg.balance_fetched   && <span className="meta-badge balance">💳 balance</span>}
+                      {msg.file_generated    && <span className="meta-badge file">📄 file</span>}
+                      {msg.memory_auto_saved && <span className="meta-badge remembered" title={msg.memory_fact ? `${msg.memory_fact.key}: ${msg.memory_fact.value}` : ''}>💾 remembered</span>}
+                      {msg.history_searched  && <span className="meta-badge history">🕓 {msg.history_results} past</span>}
                     </div>
                   </div>
                 )}
