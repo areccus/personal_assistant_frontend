@@ -3,6 +3,7 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import FinanceDashboard from './FinanceDashboard';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -210,6 +211,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [renamingChat, setRenamingChat]   = useState(null);
   const [renameValue, setRenameValue]     = useState('');
+  const [view, setView]                   = useState('chat'); // 'chat' | 'finance'
   const messagesEndRef = useRef(null);
   const abortRef       = useRef(null);
 
@@ -411,6 +413,15 @@ function App() {
           ))}
         </nav>
 
+        {/* Finance nav */}
+        <button
+          className={`sidebar-finance-btn ${view === 'finance' ? 'active' : ''}`}
+          onClick={() => { setView('finance'); setSidebarOpen(false); }}
+        >
+          <span className="material-symbols-outlined">account_balance</span>
+          Finance
+        </button>
+
         {/* User section at bottom */}
         <div className="sidebar-user">
           <div className="user-avatar">A</div>
@@ -424,7 +435,13 @@ function App() {
       {/* ── MAIN ── */}
       <main className="main">
 
-        {/* Fixed top bar */}
+        {/* Finance dashboard — replaces chat area */}
+        {view === 'finance' && (
+          <FinanceDashboard onBack={() => setView('chat')} />
+        )}
+
+        {/* Chat view — top bar + messages + input */}
+        {view === 'chat' && <>
         <header className="top-bar">
           {/* Hamburger — mobile only */}
           <button className="hamburger" onClick={() => setSidebarOpen(true)}>
@@ -567,6 +584,7 @@ function App() {
             <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
           </div>
         </div>
+        </>}
 
       </main>
     </div>

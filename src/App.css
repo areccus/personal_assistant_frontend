@@ -392,6 +392,42 @@ body {
   letter-spacing: 0.08em;
 }
 
+/* ── SIDEBAR — FINANCE BUTTON ───────────────────────────────── */
+
+.sidebar-finance-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all var(--ease);
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.sidebar-finance-btn:hover {
+  background: var(--surface-low);
+  color: var(--text);
+}
+
+.sidebar-finance-btn.active {
+  background: var(--surface-high);
+  color: var(--primary);
+}
+
+.sidebar-finance-btn .material-symbols-outlined {
+  font-size: 18px;
+  color: inherit;
+}
+
 /* ── MAIN ───────────────────────────────────────────────────── */
 
 .main {
