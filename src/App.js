@@ -434,8 +434,8 @@ function App() {
       await fetchChats();
     } catch (error) {
       if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
-        // Pull the user message back out so they can edit and resend
         setMessages(prev => prev.slice(0, -1));
+        setInput(userText);
       } else {
         setMessages(prev => [...prev, {
           role: 'error',
