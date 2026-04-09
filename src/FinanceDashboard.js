@@ -788,7 +788,7 @@ function GoalsTab({ goals, summary, loading, onGoalSaved }) {
 
 // ── Main dashboard ────────────────────────────────────────────────────────────
 
-function FinanceDashboard({ onBack }) {
+function FinanceDashboard({ onBack, theme = 'dark' }) {
   const [tab,          setTab]          = useState('spent');
   const [transactions, setTransactions] = useState([]);
   const [summary,      setSummary]      = useState(null);
@@ -829,7 +829,7 @@ function FinanceDashboard({ onBack }) {
   // All-transactions full-screen slide-in
   if (showAllTxns) {
     return (
-      <div className="fin-shell">
+      <div className={`fin-shell ${theme}`}>
         <AllTransactionsView
           transactions={transactions}
           onBack={() => setShowAllTxns(false)}

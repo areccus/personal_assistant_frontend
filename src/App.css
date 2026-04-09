@@ -208,6 +208,176 @@ body {
   color: var(--primary);
 }
 
+/* ── SEARCH CHATS BUTTON ────────────────────────────────────── */
+
+.search-chats-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all var(--ease);
+  margin-bottom: 8px;
+}
+
+.search-chats-btn:hover {
+  background: var(--surface-low);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.search-chats-btn .material-symbols-outlined {
+  font-size: 17px;
+  color: var(--text-muted);
+}
+
+/* ── CHAT SEARCH MODAL ──────────────────────────────────────── */
+
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+}
+
+.search-modal {
+  width: 100%;
+  max-width: 580px;
+  background: var(--surface-mid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  animation: fadeUp 0.16s ease-out;
+  margin: 0 16px;
+}
+
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-icon {
+  font-size: 20px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 15px;
+  font-family: var(--font);
+  font-weight: 500;
+}
+
+.search-input::placeholder { color: var(--text-dim); }
+
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: all var(--ease);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.search-clear:hover { background: var(--surface-high); color: var(--text); }
+.search-clear .material-symbols-outlined { font-size: 16px; }
+
+.search-results {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.search-results::-webkit-scrollbar { width: 3px; }
+.search-results::-webkit-scrollbar-thumb { background: var(--surface-high); border-radius: 2px; }
+
+.search-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.search-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  cursor: pointer;
+  transition: background var(--ease);
+  font-family: var(--font);
+}
+
+.search-result-item:hover { background: var(--surface-high); }
+
+.search-result-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.search-result-name .material-symbols-outlined {
+  font-size: 15px;
+  color: var(--primary);
+}
+
+.search-result-snippet {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tahoe overrides */
+.shell.tahoe .search-modal {
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(24px);
+  border-color: rgba(173,172,178,0.25);
+}
+.shell.tahoe .search-input-row { border-bottom-color: rgba(173,172,178,0.20); }
+.shell.tahoe .search-result-item:hover { background: rgba(0,88,187,0.06); }
+.shell.tahoe .search-chats-btn:hover { background: rgba(255,255,255,0.50); }
+
 /* ── SIDEBAR — CHAT LIST ────────────────────────────────────── */
 
 .chat-list-label {
@@ -1208,8 +1378,12 @@ body {
     #af52de 240deg 300deg,
     #ff5f5a 300deg 360deg
   );
-  box-shadow: 0 0 8px rgba(255,255,255,0.15);
+  box-shadow: 0 0 8px rgba(255,255,255,0.15), 0 0 0 2px rgba(255,255,255,0.22);
   transition: box-shadow 0.2s ease;
+}
+
+.shell.tahoe .theme-toggle-orb {
+  box-shadow: 0 0 8px rgba(0,0,0,0.12), 0 0 0 2px rgba(0,0,0,0.18);
 }
 
 .theme-toggle:hover .theme-toggle-orb {
@@ -1220,11 +1394,11 @@ body {
 
 .shell.tahoe {
   --bg:              transparent;
-  --surface:         rgba(255,255,255,0.45);
-  --surface-low:     rgba(255,255,255,0.25);
-  --surface-mid:     rgba(255,255,255,0.35);
-  --surface-high:    rgba(255,255,255,0.55);
-  --surface-highest: rgba(255,255,255,0.65);
+  --surface:         rgba(255,255,255,0.54);
+  --surface-low:     rgba(255,255,255,0.34);
+  --surface-mid:     rgba(255,255,255,0.44);
+  --surface-high:    rgba(255,255,255,0.64);
+  --surface-highest: rgba(255,255,255,0.74);
 
   --primary:         #0058bb;
   --primary-bright:  #007AFF;
@@ -1256,7 +1430,7 @@ body {
 
 /* Sidebar glass */
 .shell.tahoe .sidebar {
-  background: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.54);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-right-color: rgba(173,172,178,0.20);
@@ -1264,7 +1438,7 @@ body {
 
 /* Top bar glass */
 .shell.tahoe .top-bar {
-  background: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.64);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border-bottom-color: rgba(173,172,178,0.20);
@@ -1277,11 +1451,11 @@ body {
 
 /* Agent pills */
 .shell.tahoe .agent-pills {
-  background: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.44);
 }
 
 .shell.tahoe .agent-pill.active {
-  background: rgba(255,255,255,0.70);
+  background: rgba(255,255,255,0.78);
   color: var(--text);
   box-shadow: 0 1px 6px rgba(0,0,0,0.12);
 }
@@ -1291,7 +1465,7 @@ body {
 
 /* Message bubbles */
 .shell.tahoe .bubble-assistant {
-  background: rgba(255,255,255,0.60);
+  background: rgba(255,255,255,0.68);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-color: rgba(173,172,178,0.20);
@@ -1305,7 +1479,7 @@ body {
 
 /* Input pill */
 .shell.tahoe .input-pill {
-  background: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.64);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border-color: rgba(173,172,178,0.25);
@@ -1322,28 +1496,28 @@ body {
 
 /* New chat button */
 .shell.tahoe .new-chat-btn {
-  background: rgba(255,255,255,0.50);
+  background: rgba(255,255,255,0.58);
   border-color: rgba(173,172,178,0.25);
   color: var(--text);
 }
 
 .shell.tahoe .new-chat-btn:hover {
-  background: rgba(255,255,255,0.70);
+  background: rgba(255,255,255,0.76);
 }
 
 /* Chat items */
-.shell.tahoe .chat-item:hover { background: rgba(255,255,255,0.40); }
-.shell.tahoe .chat-item.active { background: rgba(255,255,255,0.60); }
+.shell.tahoe .chat-item:hover { background: rgba(255,255,255,0.50); }
+.shell.tahoe .chat-item.active { background: rgba(255,255,255,0.68); }
 
 /* Sidebar user section */
 .shell.tahoe .sidebar-user {
-  background: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.44);
   border-color: rgba(173,172,178,0.20);
 }
 
 /* Copy menus */
 .shell.tahoe .copy-pill-btn {
-  background: rgba(255,255,255,0.80);
+  background: rgba(255,255,255,0.86);
   backdrop-filter: blur(12px);
   border-color: rgba(173,172,178,0.25);
   color: var(--text);
@@ -1351,7 +1525,7 @@ body {
 }
 
 .shell.tahoe .ctx-menu {
-  background: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.90);
   backdrop-filter: blur(16px);
   border-color: rgba(173,172,178,0.25);
   box-shadow: 0 8px 30px rgba(0,0,0,0.12);

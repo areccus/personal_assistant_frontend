@@ -1054,3 +1054,155 @@
   .fin-table-wrap { padding: 0 16px 32px; }
   .fin-error-card { margin: 16px 16px 0; }
 }
+
+/* ── TAHOE THEME ─────────────────────────────────────────────── */
+
+.fin-shell.tahoe {
+  background: transparent;
+  position: relative;
+}
+
+.fin-shell.tahoe::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top left, #6c9fff 0%, #f0f0ff 40%, #ff9197 80%, #cfcdff 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.fin-shell.tahoe > * { position: relative; z-index: 1; }
+
+.fin-shell.tahoe .fin-header {
+  background: rgba(255,255,255,0.64);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-eyebrow { color: #0058bb; }
+.fin-shell.tahoe .fin-title   { color: #1a1a2e; }
+
+.fin-shell.tahoe .fin-stat-card {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(12px);
+  border-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-stat-label { color: #5b5b60; }
+.fin-shell.tahoe .fin-stat-value { color: #1a1a2e; }
+
+.fin-shell.tahoe .fin-back-btn {
+  background: rgba(255,255,255,0.50);
+  border-color: rgba(173,172,178,0.25);
+  color: #2d2e33;
+}
+
+.fin-shell.tahoe .fin-back-btn:hover { background: rgba(255,255,255,0.75); }
+
+.fin-shell.tahoe .fin-refresh-btn {
+  background: rgba(255,255,255,0.50);
+  border-color: rgba(173,172,178,0.25);
+  color: #2d2e33;
+}
+
+.fin-shell.tahoe .fin-refresh-btn:hover { background: rgba(255,255,255,0.75); }
+
+/* Tabs */
+.fin-shell.tahoe .fin-tabs {
+  background: rgba(255,255,255,0.44);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-tab { color: #5b5b60; }
+.fin-shell.tahoe .fin-tab:hover { color: #2d2e33; }
+.fin-shell.tahoe .fin-tab.active { color: #0058bb; border-bottom-color: #0058bb; }
+
+/* Scrollable content area */
+.fin-shell.tahoe .fin-scroll {
+  background: transparent;
+}
+
+/* Cards / sections */
+.fin-shell.tahoe .fin-section-title { color: #5b5b60; }
+
+.fin-shell.tahoe .fin-card {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-card-title { color: #1a1a2e; }
+
+/* Category rows */
+.fin-shell.tahoe .fin-cat-name  { color: #2d2e33; }
+.fin-shell.tahoe .fin-cat-amt   { color: #1a1a2e; }
+.fin-shell.tahoe .fin-cat-bar-bg { background: rgba(0,0,0,0.08); }
+.fin-shell.tahoe .fin-cat-row:hover { background: rgba(0,88,187,0.05); }
+
+/* Cashflow card */
+.fin-shell.tahoe .fin-cf-card {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(12px);
+  border-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-cf-label { color: #5b5b60; }
+.fin-shell.tahoe .fin-cf-value { color: #1a1a2e; }
+
+/* Goals */
+.fin-shell.tahoe .fin-goal-card {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(12px);
+  border-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-goal-name    { color: #1a1a2e; }
+.fin-shell.tahoe .fin-goal-sub     { color: #5b5b60; }
+.fin-shell.tahoe .fin-goal-bar-bg  { background: rgba(0,0,0,0.08); }
+
+/* Transaction table */
+.fin-shell.tahoe .fin-table-wrap { background: transparent; }
+
+.fin-shell.tahoe .fin-all-header {
+  background: rgba(255,255,255,0.64);
+  backdrop-filter: blur(24px);
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-all-title { color: #1a1a2e; }
+
+.fin-shell.tahoe .fin-search {
+  background: rgba(255,255,255,0.60);
+  border-color: rgba(173,172,178,0.25);
+  color: #2d2e33;
+}
+
+.fin-shell.tahoe .fin-search:focus {
+  border-color: rgba(0,88,187,0.35);
+  box-shadow: 0 0 0 3px rgba(0,88,187,0.08);
+}
+
+.fin-shell.tahoe .fin-table-head th {
+  background: rgba(255,255,255,0.50);
+  color: #5b5b60;
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+
+.fin-shell.tahoe .fin-table-row { border-bottom-color: rgba(173,172,178,0.12); }
+.fin-shell.tahoe .fin-table-row:hover { background: rgba(0,88,187,0.04); }
+.fin-shell.tahoe .fin-table-row td { color: #2d2e33; }
+
+.fin-shell.tahoe .fin-merchant { color: #1a1a2e; }
+.fin-shell.tahoe .fin-account  { color: #5b5b60; }
+
+/* Loading / error states */
+.fin-shell.tahoe .fin-loading { color: #5b5b60; }
+.fin-shell.tahoe .fin-error-card {
+  background: rgba(255,100,100,0.10);
+  border-color: rgba(255,100,100,0.20);
+  color: #b31b25;
+}

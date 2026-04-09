@@ -329,12 +329,69 @@ function App() {
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [renamingChat, setRenamingChat]   = useState(null);
   const [renameValue, setRenameValue]     = useState('');
-  const [view, setView]                   = useState('chat'); // 'chat' | 'finance'
+  const [searchOpen, setSearchOpen]       = useState(false);
+  const [searchQuery, setSearchQuery]     = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Derive initial view from URL, default to chats
+  const pathToView = (p) => p.startsWith('/finance') ? 'finance' : 'chat';
+  const [view, setView] = useState(() => pathToView(window.location.pathname));
+
+  const navigateTo = (v) => {
+    const path = v === 'finance' ? '/finance' : '/chats';
+    window.history.pushState({ view: v }, '', path);
+    setView(v);
+  };
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onPop = (e) => setView(e.state?.view || pathToView(window.location.pathname));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   const messagesEndRef = useRef(null);
   const abortRef       = useRef(null);
+  const searchTimer    = useRef(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { fetchChats(); }, []);
+
+  // Focus search input when modal opens
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  }, [searchOpen]);
+
+  const runSearch = async (q) => {
+    if (!q.trim()) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/sessions/search`, { params: { q } });
+      setSearchResults(res.data.results || []);
+    } catch (e) {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const onSearchChange = (e) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => runSearch(q), 280);
+  };
+
+  const openSearchResult = (sessionName) => {
+    setSearchOpen(false);
+    switchChat(sessionName);
+  };
 
   const fetchChats = async () => {
     try {
@@ -484,6 +541,51 @@ function App() {
       <div className="glow-primary" />
       <div className="glow-tertiary" />
 
+      {/* ── Chat Search Modal ── */}
+      {searchOpen && (
+        <div className="search-overlay" onClick={() => setSearchOpen(false)}>
+          <div className="search-modal" onClick={e => e.stopPropagation()}>
+            <div className="search-input-row">
+              <span className="material-symbols-outlined search-icon">search</span>
+              <input
+                ref={searchInputRef}
+                className="search-input"
+                placeholder="Search all chats..."
+                value={searchQuery}
+                onChange={onSearchChange}
+                onKeyDown={e => e.key === 'Escape' && setSearchOpen(false)}
+              />
+              {searchQuery && (
+                <button className="search-clear" onClick={() => { setSearchQuery(''); setSearchResults([]); searchInputRef.current?.focus(); }}>
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              )}
+            </div>
+
+            <div className="search-results">
+              {searchLoading && (
+                <div className="search-empty">Searching...</div>
+              )}
+              {!searchLoading && searchQuery && searchResults.length === 0 && (
+                <div className="search-empty">No chats found for "{searchQuery}"</div>
+              )}
+              {!searchLoading && !searchQuery && (
+                <div className="search-empty">Type to search across all your chats</div>
+              )}
+              {searchResults.map((r, i) => (
+                <button key={i} className="search-result-item" onClick={() => openSearchResult(r.session)}>
+                  <div className="search-result-name">
+                    <span className="material-symbols-outlined">chat_bubble</span>
+                    {r.session}
+                  </div>
+                  <div className="search-result-snippet">{r.snippet}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile overlay — clicking it closes the sidebar ── */}
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
@@ -494,7 +596,6 @@ function App() {
 
         {/* Brand */}
         <div className="sidebar-brand">
-          <div className="brand-icon">Z</div>
           <div>
             <div className="brand-name">Chats</div>
             <div className="brand-sub">AI Assistant</div>
@@ -508,6 +609,12 @@ function App() {
         <button className="new-chat-btn" onClick={startNewChat}>
           <span className="material-symbols-outlined">add</span>
           New Chat
+        </button>
+
+        {/* Search Chats */}
+        <button className="search-chats-btn" onClick={() => setSearchOpen(true)}>
+          <span className="material-symbols-outlined">search</span>
+          Search Chats
         </button>
 
         {/* Chat list */}
@@ -534,13 +641,15 @@ function App() {
           ))}
         </nav>
 
-        {/* Finance nav */}
+        {/* Finance / Chat toggle nav */}
         <button
-          className={`sidebar-finance-btn ${view === 'finance' ? 'active' : ''}`}
-          onClick={() => { setView('finance'); setSidebarOpen(false); }}
+          className="sidebar-finance-btn"
+          onClick={() => { navigateTo(view === 'finance' ? 'chat' : 'finance'); setSidebarOpen(false); }}
         >
-          <span className="material-symbols-outlined">account_balance</span>
-          Finance
+          <span className="material-symbols-outlined">
+            {view === 'finance' ? 'chat_bubble' : 'account_balance'}
+          </span>
+          {view === 'finance' ? 'Chat' : 'Finance'}
         </button>
 
         {/* User section at bottom */}
@@ -558,7 +667,7 @@ function App() {
 
         {/* Finance dashboard — replaces chat area */}
         {view === 'finance' && (
-          <FinanceDashboard onBack={() => setView('chat')} />
+          <FinanceDashboard onBack={() => navigateTo('chat')} theme={theme} />
         )}
 
         {/* Chat view — top bar + messages + input */}
