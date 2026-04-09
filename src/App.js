@@ -8,6 +8,17 @@ import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
+// Stable per-browser identity so each device/tab gets its own session context.
+function getClientId() {
+  let id = localStorage.getItem('zc_client_id');
+  if (!id) {
+    id = 'client_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('zc_client_id', id);
+  }
+  return id;
+}
+const CLIENT_ID = getClientId();
+
 const AGENTS = {
   jarvis: {
     name: 'Jarvis',
@@ -82,31 +93,123 @@ function parseDownloadLink(content) {
   return { text: content, filename: null, url: null };
 }
 
+// ── Copyable bubble wrapper ───────────────────────────────────────────────────
+// Desktop: right-click → context menu with Copy
+// Mobile:  long-press → copy pill slides in over the bubble
+
+function CopyableBubble({ text, children }) {
+  const [showPill,    setShowPill]    = useState(false);
+  const [copied,      setCopied]      = useState(false);
+  const [menuPos,     setMenuPos]     = useState(null); // {x, y} for desktop menu
+  const holdTimer   = useRef(null);
+  const pillTimer   = useRef(null);
+
+  const doCopy = () => {
+    // Clipboard API needs HTTPS or localhost; fall back to execCommand on iOS
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.style.position = 'fixed';
+        el.style.opacity  = '0';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+    } catch (e) {}
+    setCopied(true);
+    clearTimeout(pillTimer.current);
+    pillTimer.current = setTimeout(() => { setCopied(false); setShowPill(false); setMenuPos(null); }, 2000);
+  };
+
+  // ── Desktop right-click ──
+  const onContextMenu = (e) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setShowPill(false);
+  };
+
+  // ── Mobile long-press ──
+  const onTouchStart = (e) => {
+    holdTimer.current = setTimeout(() => {
+      setShowPill(true);
+      setMenuPos(null);
+    }, 500);
+  };
+  const cancelHold = () => clearTimeout(holdTimer.current);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuPos) return;
+    const close = () => setMenuPos(null);
+    document.addEventListener('click', close, { once: true });
+    return () => document.removeEventListener('click', close);
+  }, [menuPos]);
+
+  return (
+    <div
+      className="copyable-bubble"
+      onContextMenu={onContextMenu}
+      onTouchStart={onTouchStart}
+      onTouchEnd={cancelHold}
+      onTouchMove={cancelHold}
+    >
+      {children}
+
+      {/* Mobile long-press pill */}
+      {showPill && (
+        <div className="copy-pill">
+          <button className="copy-pill-btn" onClick={doCopy}>
+            <span className="material-symbols-outlined">{copied ? 'check' : 'content_copy'}</span>
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      )}
+
+      {/* Desktop right-click menu */}
+      {menuPos && (
+        <div className="ctx-menu" style={{ top: menuPos.y, left: menuPos.x }}>
+          <button className="ctx-menu-item" onClick={doCopy}>
+            <span className="material-symbols-outlined">{copied ? 'check' : 'content_copy'}</span>
+            {copied ? 'Copied!' : 'Copy response'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Assistant message ─────────────────────────────────────────────────────────
 
 function AssistantMessage({ content, image_urls }) {
   const { text, filename, url } = parseDownloadLink(content);
+
   return (
-    <div className="message-content markdown-content">
-      <ReactMarkdown components={markdownComponents}>{text}</ReactMarkdown>
-      {url && (
-        <a href={url} download={filename} className="download-btn">⬇ Download {filename}</a>
-      )}
-      {image_urls && image_urls.length > 0 && (
-        <div className="image-results">
-          {image_urls.map((src, i) => (
-            <a key={i} href={src} target="_blank" rel="noopener noreferrer">
-              <img
-                src={src}
-                alt={`result ${i + 1}`}
-                className="search-image"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
+    <CopyableBubble text={text}>
+      <div className="message-content markdown-content">
+        <ReactMarkdown components={markdownComponents}>{text}</ReactMarkdown>
+        {url && (
+          <a href={url} download={filename} className="download-btn">⬇ Download {filename}</a>
+        )}
+        {image_urls && image_urls.length > 0 && (
+          <div className="image-results">
+            {image_urls.map((src, i) => (
+              <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={src}
+                  alt={`result ${i + 1}`}
+                  className="search-image"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </CopyableBubble>
   );
 }
 
@@ -226,7 +329,7 @@ function App() {
   };
 
   const startNewChat = async () => {
-    try { await axios.post(`${API_URL}/sessions/reset`); } catch (err) {}
+    try { await axios.post(`${API_URL}/sessions/reset`, { client_id: CLIENT_ID }); } catch (err) {}
     setMessages([]);
     setCurrentChat(null);
     setSidebarOpen(false);
@@ -235,7 +338,7 @@ function App() {
   const switchChat = async (name) => {
     if (name === currentChat) { setSidebarOpen(false); return; }
     try {
-      const res = await axios.post(`${API_URL}/sessions/load`, { name });
+      const res = await axios.post(`${API_URL}/sessions/load`, { name, client_id: CLIENT_ID });
       setCurrentChat(name);
       const history = res.data.history || [];
       setMessages(history.map(h => ({
@@ -299,7 +402,7 @@ function App() {
     try {
       const response = await axios.post(
         `${API_URL}/ask`,
-        { message: routedMessage },
+        { message: routedMessage, client_id: CLIENT_ID },
         { signal: controller.signal }
       );
       const data = response.data;

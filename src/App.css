@@ -1014,6 +1014,92 @@ body {
   color: var(--primary);
 }
 
+/* ── COPYABLE BUBBLE ─────────────────────────────────────────── */
+
+.copyable-bubble {
+  position: relative;
+}
+
+/* Mobile long-press pill */
+.copy-pill {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  animation: pill-in 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 20;
+}
+
+@keyframes pill-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.copy-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-highest);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  font-weight: 500;
+  padding: 6px 14px 6px 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+
+.copy-pill-btn .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--primary);
+}
+
+/* Desktop right-click context menu */
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--surface-highest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  padding: 4px;
+  min-width: 160px;
+  animation: ctx-in 0.12s ease;
+}
+
+@keyframes ctx-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--ease);
+}
+
+.ctx-menu-item:hover {
+  background: var(--surface-high);
+}
+
+.ctx-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
 /* ── DOWNLOAD BUTTON ────────────────────────────────────────── */
 
 .download-btn {
