@@ -149,6 +149,13 @@ function CopyableBubble({ text, children }) {
     return () => document.removeEventListener('click', close);
   }, [menuPos]);
 
+  const onMouseLeave = () => {
+    setShowPill(false);
+    setMenuPos(null);
+    setCopied(false);
+    clearTimeout(pillTimer.current);
+  };
+
   return (
     <div
       className="copyable-bubble"
@@ -156,6 +163,7 @@ function CopyableBubble({ text, children }) {
       onTouchStart={onTouchStart}
       onTouchEnd={cancelHold}
       onTouchMove={cancelHold}
+      onMouseLeave={onMouseLeave}
     >
       {children}
 
@@ -174,7 +182,7 @@ function CopyableBubble({ text, children }) {
         <div className="ctx-menu" style={{ top: menuPos.y, left: menuPos.x }}>
           <button className="ctx-menu-item" onClick={doCopy}>
             <span className="material-symbols-outlined">{copied ? 'check' : 'content_copy'}</span>
-            {copied ? 'Copied!' : 'Copy response'}
+            {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
       )}
@@ -629,7 +637,11 @@ function App() {
                   </div>
                 )}
                 {msg.role === 'user' && (
-                  <div className="bubble bubble-user">{msg.content}</div>
+                  <div className="bubble bubble-user">
+                    <CopyableBubble text={msg.content}>
+                      {msg.content}
+                    </CopyableBubble>
+                  </div>
                 )}
                 {msg.role === 'error' && (
                   <div className="bubble bubble-error">{msg.content}</div>
