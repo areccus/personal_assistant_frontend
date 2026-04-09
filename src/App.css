@@ -1175,3 +1175,213 @@ body {
   .bubble { padding: 12px 14px; font-size: 13.5px; }
   .input-area { padding: 12px 12px 16px; }
 }
+
+/* ── THEME TOGGLE BUTTON ────────────────────────────────────── */
+
+.theme-toggle {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle:hover { transform: scale(1.15); }
+
+.theme-toggle-orb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ff5f5a 0deg 60deg,
+    #ffbe2e 60deg 120deg,
+    #28c840 120deg 180deg,
+    #007aff 180deg 240deg,
+    #af52de 240deg 300deg,
+    #ff5f5a 300deg 360deg
+  );
+  box-shadow: 0 0 8px rgba(255,255,255,0.15);
+  transition: box-shadow 0.2s ease;
+}
+
+.theme-toggle:hover .theme-toggle-orb {
+  box-shadow: 0 0 14px rgba(255,255,255,0.3);
+}
+
+/* ── TAHOE THEME ─────────────────────────────────────────────── */
+
+.shell.tahoe {
+  --bg:              transparent;
+  --surface:         rgba(255,255,255,0.45);
+  --surface-low:     rgba(255,255,255,0.25);
+  --surface-mid:     rgba(255,255,255,0.35);
+  --surface-high:    rgba(255,255,255,0.55);
+  --surface-highest: rgba(255,255,255,0.65);
+
+  --primary:         #0058bb;
+  --primary-bright:  #007AFF;
+  --primary-on:      #ffffff;
+  --primary-dim:     rgba(0,88,187,0.10);
+  --primary-glow:    rgba(0,88,187,0.18);
+
+  --text:            #1a1a2e;
+  --text-sub:        #2d2e33;
+  --text-muted:      #5b5b60;
+  --text-dim:        #adacb2;
+
+  --border:          rgba(173,172,178,0.20);
+  --border-strong:   rgba(173,172,178,0.35);
+
+  --red:             #b31b25;
+  --red-dim:         rgba(179,27,37,0.08);
+}
+
+/* Apple-wallpaper background on the body when Tahoe is active */
+.shell.tahoe::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top left, #6c9fff 0%, #f0f0ff 40%, #ff9197 80%, #cfcdff 100%);
+  background-attachment: fixed;
+  z-index: -1;
+}
+
+/* Sidebar glass */
+.shell.tahoe .sidebar {
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right-color: rgba(173,172,178,0.20);
+}
+
+/* Top bar glass */
+.shell.tahoe .top-bar {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+
+.shell.tahoe .topbar-title {
+  text-shadow: none;
+  color: var(--text);
+}
+
+/* Agent pills */
+.shell.tahoe .agent-pills {
+  background: rgba(255,255,255,0.35);
+}
+
+.shell.tahoe .agent-pill.active {
+  background: rgba(255,255,255,0.70);
+  color: var(--text);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.12);
+}
+
+/* Body background */
+.shell.tahoe ~ * { background: transparent; }
+
+/* Message bubbles */
+.shell.tahoe .bubble-assistant {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(173,172,178,0.20);
+  color: var(--text-sub);
+}
+
+.shell.tahoe .bubble-user {
+  background: rgba(0,88,187,0.85);
+  color: #ffffff;
+}
+
+/* Input pill */
+.shell.tahoe .input-pill {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-color: rgba(173,172,178,0.25);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+}
+
+.shell.tahoe .input-pill:focus-within {
+  border-color: rgba(0,88,187,0.30);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.08), 0 0 0 3px rgba(0,88,187,0.08);
+}
+
+.shell.tahoe .pill-textarea { color: var(--text); }
+.shell.tahoe .pill-textarea::placeholder { color: var(--text-dim); }
+
+/* New chat button */
+.shell.tahoe .new-chat-btn {
+  background: rgba(255,255,255,0.50);
+  border-color: rgba(173,172,178,0.25);
+  color: var(--text);
+}
+
+.shell.tahoe .new-chat-btn:hover {
+  background: rgba(255,255,255,0.70);
+}
+
+/* Chat items */
+.shell.tahoe .chat-item:hover { background: rgba(255,255,255,0.40); }
+.shell.tahoe .chat-item.active { background: rgba(255,255,255,0.60); }
+
+/* Sidebar user section */
+.shell.tahoe .sidebar-user {
+  background: rgba(255,255,255,0.35);
+  border-color: rgba(173,172,178,0.20);
+}
+
+/* Copy menus */
+.shell.tahoe .copy-pill-btn {
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(12px);
+  border-color: rgba(173,172,178,0.25);
+  color: var(--text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.shell.tahoe .ctx-menu {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(16px);
+  border-color: rgba(173,172,178,0.25);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.shell.tahoe .ctx-menu-item { color: var(--text); }
+.shell.tahoe .ctx-menu-item:hover { background: rgba(0,88,187,0.07); }
+
+/* Glow orbs — replace dark glows with light pastels */
+.shell.tahoe .glow-primary {
+  background: radial-gradient(circle, rgba(108,159,255,0.18) 0%, transparent 65%);
+}
+.shell.tahoe .glow-tertiary {
+  background: radial-gradient(circle, rgba(255,145,151,0.12) 0%, transparent 65%);
+}
+
+/* Markdown headings */
+.shell.tahoe .markdown-content h1,
+.shell.tahoe .markdown-content h2,
+.shell.tahoe .markdown-content h3 { color: var(--text); }
+
+.shell.tahoe .markdown-content strong { color: var(--text); }
+
+/* Code blocks stay dark — intentional contrast */
+.shell.tahoe .inline-code {
+  background: rgba(0,0,0,0.07);
+  border-color: rgba(0,0,0,0.10);
+  color: var(--primary);
+}
+
+/* Finance button */
+.shell.tahoe .sidebar-finance-btn:hover { background: rgba(255,255,255,0.40); color: var(--text); }
+.shell.tahoe .sidebar-finance-btn.active { background: rgba(255,255,255,0.60); color: var(--primary); }

@@ -317,6 +317,13 @@ function App() {
   const [input, setInput]                 = useState('');
   const [agent, setAgent]                 = useState('jarvis');
   const [isLoading, setIsLoading]         = useState(false);
+  const [theme, setTheme]                 = useState(() => localStorage.getItem('zc_theme') || 'dark');
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'tahoe' : 'dark';
+    setTheme(next);
+    localStorage.setItem('zc_theme', next);
+  };
   const [chats, setChats]                 = useState([]);
   const [currentChat, setCurrentChat]     = useState(null);
   const [sidebarOpen, setSidebarOpen]     = useState(false);
@@ -471,7 +478,7 @@ function App() {
   const currentAgent = AGENTS[agent];
 
   return (
-    <div className="shell">
+    <div className={`shell ${theme}`}>
 
       {/* ── Ambient background glows ── */}
       <div className="glow-primary" />
@@ -492,6 +499,9 @@ function App() {
             <div className="brand-name">Chats</div>
             <div className="brand-sub">AI Assistant</div>
           </div>
+          <button className="theme-toggle" onClick={toggleTheme} title={theme === 'tahoe' ? 'Switch to Dark' : 'Switch to Tahoe'}>
+            <div className="theme-toggle-orb" />
+          </button>
         </div>
 
         {/* New Chat */}
