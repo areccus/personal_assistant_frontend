@@ -323,7 +323,13 @@ function App() {
     const next = theme === 'dark' ? 'tahoe' : 'dark';
     setTheme(next);
     localStorage.setItem('zc_theme', next);
+    document.body.classList.toggle('tahoe', next === 'tahoe');
   };
+
+  // Sync theme to body on mount so Finance page picks it up immediately
+  useEffect(() => {
+    document.body.classList.toggle('tahoe', theme === 'tahoe');
+  }, [theme]);
   const [chats, setChats]                 = useState([]);
   const [currentChat, setCurrentChat]     = useState(null);
   const [sidebarOpen, setSidebarOpen]     = useState(false);

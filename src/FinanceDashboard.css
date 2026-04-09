@@ -1057,152 +1057,201 @@
 
 /* ── TAHOE THEME ─────────────────────────────────────────────── */
 
-.fin-shell.tahoe {
-  background: transparent;
-  position: relative;
-}
-
-.fin-shell.tahoe::before {
-  content: '';
-  position: fixed;
-  inset: 0;
+body.tahoe .fin-shell {
   background: radial-gradient(circle at top left, #6c9fff 0%, #f0f0ff 40%, #ff9197 80%, #cfcdff 100%);
-  z-index: 0;
-  pointer-events: none;
 }
 
-.fin-shell.tahoe > * { position: relative; z-index: 1; }
-
-.fin-shell.tahoe .fin-header {
+/* Header */
+body.tahoe .fin-header {
   background: rgba(255,255,255,0.64);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-bottom-color: rgba(173,172,178,0.20);
 }
+body.tahoe .fin-eyebrow { color: #0058bb; }
+body.tahoe .fin-title   { color: #1a1a2e; }
 
-.fin-shell.tahoe .fin-eyebrow { color: #0058bb; }
-.fin-shell.tahoe .fin-title   { color: #1a1a2e; }
-
-.fin-shell.tahoe .fin-stat-card {
+/* Stat cards in header */
+body.tahoe .fin-stat-card {
   background: rgba(255,255,255,0.60);
   backdrop-filter: blur(12px);
-  border-color: rgba(173,172,178,0.20);
+  border-color: rgba(173,172,178,0.22);
 }
+body.tahoe .fin-stat-label { color: #5b5b60; }
+body.tahoe .fin-stat-value { color: #1a1a2e; }
+body.tahoe .fin-stat-value.primary { color: #0058bb; }
 
-.fin-shell.tahoe .fin-stat-label { color: #5b5b60; }
-.fin-shell.tahoe .fin-stat-value { color: #1a1a2e; }
-
-.fin-shell.tahoe .fin-back-btn {
-  background: rgba(255,255,255,0.50);
-  border-color: rgba(173,172,178,0.25);
-  color: #2d2e33;
-}
-
-.fin-shell.tahoe .fin-back-btn:hover { background: rgba(255,255,255,0.75); }
-
-.fin-shell.tahoe .fin-refresh-btn {
-  background: rgba(255,255,255,0.50);
-  border-color: rgba(173,172,178,0.25);
-  color: #2d2e33;
-}
-
-.fin-shell.tahoe .fin-refresh-btn:hover { background: rgba(255,255,255,0.75); }
+/* Buttons */
+body.tahoe .fin-back-btn    { color: #0058bb; }
+body.tahoe .fin-back-btn:hover    { background: rgba(0,88,187,0.08); }
+body.tahoe .fin-refresh-btn { color: #5b5b60; }
+body.tahoe .fin-refresh-btn:hover { background: rgba(255,255,255,0.60); color: #1a1a2e; }
 
 /* Tabs */
-.fin-shell.tahoe .fin-tabs {
-  background: rgba(255,255,255,0.44);
+body.tahoe .fin-tabs {
+  background: rgba(255,255,255,0.50);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom-color: rgba(173,172,178,0.20);
 }
+body.tahoe .fin-tab       { color: #5b5b60; }
+body.tahoe .fin-tab:hover { color: #1a1a2e; }
+body.tahoe .fin-tab.active { color: #0058bb; border-bottom-color: #0058bb; }
 
-.fin-shell.tahoe .fin-tab { color: #5b5b60; }
-.fin-shell.tahoe .fin-tab:hover { color: #2d2e33; }
-.fin-shell.tahoe .fin-tab.active { color: #0058bb; border-bottom-color: #0058bb; }
+/* Tab content scroll area */
+body.tahoe .fin-tab-content { background: transparent; }
+body.tahoe .fin-tab-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
 
-/* Scrollable content area */
-.fin-shell.tahoe .fin-scroll {
-  background: transparent;
-}
+/* Section labels */
+body.tahoe .fin-section-label { color: #5b5b60; }
 
-/* Cards / sections */
-.fin-shell.tahoe .fin-section-title { color: #5b5b60; }
-
-.fin-shell.tahoe .fin-card {
-  background: rgba(255,255,255,0.60);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* Cards */
+body.tahoe .fin-card {
+  background: rgba(255,255,255,0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-color: rgba(173,172,178,0.20);
 }
 
-.fin-shell.tahoe .fin-card-title { color: #1a1a2e; }
+/* Donut center text */
+body.tahoe .fin-donut-label { color: #5b5b60; }
+body.tahoe .fin-donut-total { color: #1a1a2e; }
 
-/* Category rows */
-.fin-shell.tahoe .fin-cat-name  { color: #2d2e33; }
-.fin-shell.tahoe .fin-cat-amt   { color: #1a1a2e; }
-.fin-shell.tahoe .fin-cat-bar-bg { background: rgba(0,0,0,0.08); }
-.fin-shell.tahoe .fin-cat-row:hover { background: rgba(0,88,187,0.05); }
+/* Pie legend */
+body.tahoe .fin-pie-legend-name { color: #1a1a2e; }
+body.tahoe .fin-pie-legend-amt  { color: #5b5b60; }
 
-/* Cashflow card */
-.fin-shell.tahoe .fin-cf-card {
-  background: rgba(255,255,255,0.60);
-  backdrop-filter: blur(12px);
+/* Chart legend */
+body.tahoe .fin-legend-text { color: #5b5b60; }
+
+/* Cash flow */
+body.tahoe .fin-cashflow-label { color: #1a1a2e; }
+body.tahoe .fin-cashflow-value { color: #1a1a2e; }
+body.tahoe .fin-cashflow-track { background: rgba(0,0,0,0.10); }
+body.tahoe .fin-cashflow-net   { border-top-color: rgba(173,172,178,0.20); }
+body.tahoe .fin-cashflow-net-label { color: #5b5b60; }
+
+/* Transactions list (spent tab) */
+body.tahoe .fin-txn-row { border-bottom-color: rgba(173,172,178,0.15); }
+body.tahoe .fin-txn-icon { background: rgba(255,255,255,0.60); }
+body.tahoe .fin-txn-icon .material-symbols-outlined { color: #5b5b60; }
+body.tahoe .fin-txn-desc { color: #1a1a2e; }
+body.tahoe .fin-txn-date { color: #5b5b60; }
+body.tahoe .fin-txn-acct { color: #5b5b60; }
+body.tahoe .fin-txn-amt.debit { color: #1a1a2e; }
+
+/* View all button */
+body.tahoe .fin-view-all { color: #0058bb; }
+
+/* Goals section */
+body.tahoe .fin-goals-section-title { color: #1a1a2e; }
+body.tahoe .fin-goal-card {
+  background: rgba(255,255,255,0.62);
+  backdrop-filter: blur(14px);
   border-color: rgba(173,172,178,0.20);
 }
+body.tahoe .fin-goal-name   { color: #1a1a2e; }
+body.tahoe .fin-goal-amounts { color: #5b5b60; }
+body.tahoe .fin-goal-saved  { color: #1a1a2e; }
+body.tahoe .fin-goal-sep    { color: rgba(173,172,178,0.6); }
+body.tahoe .fin-goal-target { color: #5b5b60; }
+body.tahoe .fin-goal-date   { color: #5b5b60; }
+body.tahoe .fin-progress-track { background: rgba(0,0,0,0.10); }
+body.tahoe .fin-goal-pct    { color: #5b5b60; }
+body.tahoe .fin-goal-proj   { color: #0058bb; }
+body.tahoe .fin-goal-days   { color: #adacb2; }
+body.tahoe .fin-add-btn     { color: #0058bb; border-color: rgba(0,88,187,0.25); }
+body.tahoe .fin-add-btn:hover { background: rgba(0,88,187,0.07); }
 
-.fin-shell.tahoe .fin-cf-label { color: #5b5b60; }
-.fin-shell.tahoe .fin-cf-value { color: #1a1a2e; }
-
-/* Goals */
-.fin-shell.tahoe .fin-goal-card {
-  background: rgba(255,255,255,0.60);
-  backdrop-filter: blur(12px);
-  border-color: rgba(173,172,178,0.20);
-}
-
-.fin-shell.tahoe .fin-goal-name    { color: #1a1a2e; }
-.fin-shell.tahoe .fin-goal-sub     { color: #5b5b60; }
-.fin-shell.tahoe .fin-goal-bar-bg  { background: rgba(0,0,0,0.08); }
-
-/* Transaction table */
-.fin-shell.tahoe .fin-table-wrap { background: transparent; }
-
-.fin-shell.tahoe .fin-all-header {
-  background: rgba(255,255,255,0.64);
-  backdrop-filter: blur(24px);
-  border-bottom-color: rgba(173,172,178,0.20);
-}
-
-.fin-shell.tahoe .fin-all-title { color: #1a1a2e; }
-
-.fin-shell.tahoe .fin-search {
-  background: rgba(255,255,255,0.60);
-  border-color: rgba(173,172,178,0.25);
-  color: #2d2e33;
-}
-
-.fin-shell.tahoe .fin-search:focus {
-  border-color: rgba(0,88,187,0.35);
-  box-shadow: 0 0 0 3px rgba(0,88,187,0.08);
-}
-
-.fin-shell.tahoe .fin-table-head th {
+/* Budget tab */
+body.tahoe .fin-manage-title { color: #1a1a2e; }
+body.tahoe .fin-new-cat-btn  { color: #0058bb; }
+body.tahoe .fin-budget-table th {
   background: rgba(255,255,255,0.50);
   color: #5b5b60;
   border-bottom-color: rgba(173,172,178,0.20);
 }
+body.tahoe .fin-budget-table td {
+  color: #1a1a2e;
+  border-bottom-color: rgba(173,172,178,0.10);
+}
+body.tahoe .fin-budget-table tr:hover td { background: rgba(0,88,187,0.04); }
+body.tahoe .fin-budget-card {
+  background: rgba(255,255,255,0.62);
+  backdrop-filter: blur(12px);
+}
+body.tahoe .fin-budget-card-icon { background: rgba(0,88,187,0.10); }
+body.tahoe .fin-budget-card-icon .material-symbols-outlined { color: #0058bb; }
+body.tahoe .fin-budget-card-name { color: #1a1a2e; }
+body.tahoe .fin-budget-card-sub  { color: #5b5b60; }
+body.tahoe .fin-budget-card-amt  { color: #1a1a2e; }
+body.tahoe .fin-budget-card-rem  { color: #5b5b60; }
+body.tahoe .fin-table-edit-btn   { color: #5b5b60; }
+body.tahoe .fin-table-edit-btn:hover { color: #0058bb; }
 
-.fin-shell.tahoe .fin-table-row { border-bottom-color: rgba(173,172,178,0.12); }
-.fin-shell.tahoe .fin-table-row:hover { background: rgba(0,88,187,0.04); }
-.fin-shell.tahoe .fin-table-row td { color: #2d2e33; }
+/* Inline form */
+body.tahoe .fin-inline-form {
+  background: rgba(255,255,255,0.62);
+  border-color: rgba(173,172,178,0.20);
+}
+body.tahoe .fin-select,
+body.tahoe .fin-input {
+  background: rgba(255,255,255,0.70);
+  border-color: rgba(173,172,178,0.30);
+  color: #1a1a2e;
+}
+body.tahoe .fin-select:focus,
+body.tahoe .fin-input:focus { border-color: rgba(0,88,187,0.40); }
+body.tahoe .fin-input::placeholder { color: #adacb2; }
+body.tahoe .fin-input[type="date"] { color-scheme: light; }
+body.tahoe .fin-cancel-btn { color: #5b5b60; border-color: rgba(173,172,178,0.30); }
+body.tahoe .fin-cancel-btn:hover { background: rgba(255,255,255,0.60); color: #1a1a2e; }
 
-.fin-shell.tahoe .fin-merchant { color: #1a1a2e; }
-.fin-shell.tahoe .fin-account  { color: #5b5b60; }
+/* All transactions view */
+body.tahoe .fin-all-header {
+  background: rgba(255,255,255,0.64);
+  backdrop-filter: blur(24px);
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+body.tahoe .fin-all-title { color: #1a1a2e; }
+body.tahoe .fin-search {
+  background: rgba(255,255,255,0.62);
+  border-color: rgba(173,172,178,0.25);
+  color: #1a1a2e;
+}
+body.tahoe .fin-search::placeholder { color: #adacb2; }
+body.tahoe .fin-search:focus { border-color: rgba(0,88,187,0.35); }
+body.tahoe .fin-table-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+body.tahoe .fin-table th {
+  color: #5b5b60;
+  border-bottom-color: rgba(173,172,178,0.20);
+}
+body.tahoe .fin-table td {
+  color: #1a1a2e;
+  border-bottom-color: rgba(173,172,178,0.10);
+}
+body.tahoe .fin-table tr:hover td { background: rgba(0,88,187,0.04); }
+body.tahoe .fin-td-date  { color: #5b5b60; }
+body.tahoe .fin-td-amt.debit { color: #1a1a2e; }
 
-/* Loading / error states */
-.fin-shell.tahoe .fin-loading { color: #5b5b60; }
-.fin-shell.tahoe .fin-error-card {
-  background: rgba(255,100,100,0.10);
-  border-color: rgba(255,100,100,0.20);
+/* Skeleton */
+body.tahoe .fin-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.40) 25%, rgba(255,255,255,0.65) 50%, rgba(255,255,255,0.40) 75%);
+  background-size: 200% 100%;
+}
+
+/* Tooltip */
+body.tahoe .fin-tooltip {
+  background: rgba(255,255,255,0.90);
+  border-color: rgba(173,172,178,0.30);
+  color: #1a1a2e;
+}
+body.tahoe .fin-tooltip-label { color: #5b5b60; }
+
+/* Empty / error */
+body.tahoe .fin-empty { color: #adacb2; }
+body.tahoe .fin-error-card {
+  background: rgba(179,27,37,0.08);
+  border-color: rgba(179,27,37,0.20);
   color: #b31b25;
 }
