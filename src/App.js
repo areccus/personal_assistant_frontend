@@ -433,7 +433,7 @@ function App() {
       if (data.session_name) setCurrentChat(data.session_name);
       await fetchChats();
     } catch (error) {
-      if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+      if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
         setMessages(prev => prev.slice(0, -1));
         setInput(userText);
       } else {
