@@ -499,6 +499,7 @@ function App() {
         memory_fact: data.memory_fact,
         history_searched: data.history_searched,
         history_results: data.history_results || 0,
+        tutor_mode: data.tutor_mode,
       }]);
       if (data.session_name) setCurrentChat(data.session_name);
       await fetchChats();
@@ -745,6 +746,7 @@ function App() {
                     {msg.model && <span className="model-pill">{msg.model}</span>}
                     <div className="meta-badges">
                       {msg.web_search_used   && <span className="meta-badge search">🔍 web</span>}
+                      {msg.tutor_mode        && <span className="meta-badge tutor">🎓 tutor mode</span>}
                       {msg.memory_used       && <span className="meta-badge memory">🧠 memory</span>}
                       {msg.context_used      && <span className="meta-badge ctx">📋 context</span>}
                       {msg.balance_fetched   && <span className="meta-badge balance">💳 balance</span>}
