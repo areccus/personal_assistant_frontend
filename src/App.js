@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import FinanceDashboard from './FinanceDashboard';
 import './App.css';
 
@@ -47,14 +47,14 @@ function CodeBlock({ language, children }) {
   };
   return (
     <div className="code-block-wrapper">
-      <div className="code-block-header">
-        <span className="code-lang">{language || 'code'}</span>
-        <button className="copy-btn" onClick={handleCopy}>{copied ? '✓ Copied' : 'Copy'}</button>
-      </div>
+      <button className="code-copy-btn" onClick={handleCopy}>
+        {copied ? '✓' : 'Copy'}
+      </button>
+      {language && <span className="code-lang-label">{language}</span>}
       <SyntaxHighlighter
         language={language || 'text'}
-        style={vscDarkPlus}
-        customStyle={{ margin: 0, borderRadius: '0 0 8px 8px', fontSize: '13px', background: '#0a0a0a' }}
+        style={dracula}
+        customStyle={{ margin: 0, borderRadius: '10px', fontSize: '13px', padding: '16px 14px' }}
         PreTag="div"
       >
         {children}
