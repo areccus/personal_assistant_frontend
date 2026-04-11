@@ -80,12 +80,16 @@ function ABComparison({ messageText, responseA, clientId, onPick }) {
       <div className="ab-cards">
         <div className={`ab-card ${picked === 'a' ? 'ab-winner' : picked ? 'ab-loser' : ''}`}>
           <div className="ab-card-tag">A</div>
-          <AssistantMessage content={responseA} image_urls={[]} />
+          <div className="ab-card-body">
+            <AssistantMessage content={responseA} image_urls={[]} />
+          </div>
           {!picked && <button className="ab-pick-btn" onClick={() => handlePick('a')}>Prefer A</button>}
         </div>
         <div className={`ab-card ${picked === 'b' ? 'ab-winner' : picked ? 'ab-loser' : ''}`}>
           <div className="ab-card-tag">B</div>
-          <AssistantMessage content={responseB} image_urls={[]} />
+          <div className="ab-card-body">
+            <AssistantMessage content={responseB} image_urls={[]} />
+          </div>
           {!picked && <button className="ab-pick-btn" onClick={() => handlePick('b')}>Prefer B</button>}
         </div>
       </div>

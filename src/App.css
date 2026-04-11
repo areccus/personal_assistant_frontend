@@ -1339,7 +1339,8 @@ body {
 
 .ab-wrap {
   margin-top: 14px;
-  max-width: 720px;
+  width: 100%;
+  max-width: min(920px, 96vw);
 }
 
 .ab-label {
@@ -1360,20 +1361,37 @@ body {
 .ab-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
+  align-items: start;
 }
 
 .ab-card {
   background: var(--surface-mid);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 14px;
+  padding: 14px 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   transition: opacity 0.3s ease, border-color 0.3s ease;
   position: relative;
+  min-width: 0; /* prevent grid blowout */
 }
+
+/* Scrollable content area inside each card */
+.ab-card-body {
+  max-height: min(360px, 44vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+/* Thin scrollbar to match the rest of the UI */
+.ab-card-body::-webkit-scrollbar { width: 4px; }
+.ab-card-body::-webkit-scrollbar-track { background: transparent; }
+.ab-card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .ab-card-tag {
   position: absolute;
@@ -1400,8 +1418,7 @@ body {
 
 .ab-pick-btn {
   align-self: flex-start;
-  margin-top: auto;
-  padding: 6px 16px;
+  padding: 5px 14px;
   background: var(--primary-dim);
   border: 1px solid rgba(170,199,255,0.2);
   border-radius: var(--radius-sm);
@@ -1411,6 +1428,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all var(--ease);
+  flex-shrink: 0;
 }
 
 .ab-pick-btn:hover {
@@ -1425,8 +1443,9 @@ body {
   font-weight: 500;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .ab-cards { grid-template-columns: 1fr; }
+  .ab-card-body { max-height: min(280px, 38vh); }
 }
 
 /* ── MARKDOWN LINKS ─────────────────────────────────────────── */
