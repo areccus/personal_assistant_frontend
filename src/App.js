@@ -36,6 +36,112 @@ const AGENTS = {
   },
 };
 
+// ── A/B Comparison ────────────────────────────────────────────────────────────
+
+function ABComparison({ messageText, responseA, clientId, onPick }) {
+  const [responseB, setResponseB] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [picked, setPicked]       = useState(null);
+
+  useEffect(() => {
+    axios.post(`${API_URL}/variant`, {
+      message: messageText,
+      client_id: clientId,
+      response_a: responseA,
+    }).then(r => setResponseB(r.data.response)).catch(() => setResponseB(null)).finally(() => setLoading(false));
+  }, [messageText, responseA, clientId]);
+
+  const handlePick = async (winner) => {
+    setPicked(winner);
+    try {
+      await axios.post(`${API_URL}/feedback`, {
+        message: messageText,
+        winner,
+        response_a: responseA,
+        response_b: responseB,
+        client_id: clientId,
+      });
+    } catch {}
+    onPick(winner === 'a' ? responseA : responseB);
+  };
+
+  if (loading) return (
+    <div className="ab-wrap">
+      <div className="ab-label">Which response do you prefer?</div>
+      <div className="ab-loading">Generating alternative…</div>
+    </div>
+  );
+
+  if (!responseB) return null;
+
+  return (
+    <div className="ab-wrap">
+      <div className="ab-label">Which do you prefer?</div>
+      <div className="ab-cards">
+        <div className={`ab-card ${picked === 'a' ? 'ab-winner' : picked ? 'ab-loser' : ''}`}>
+          <div className="ab-card-tag">A</div>
+          <AssistantMessage content={responseA} image_urls={[]} />
+          {!picked && <button className="ab-pick-btn" onClick={() => handlePick('a')}>Prefer A</button>}
+        </div>
+        <div className={`ab-card ${picked === 'b' ? 'ab-winner' : picked ? 'ab-loser' : ''}`}>
+          <div className="ab-card-tag">B</div>
+          <AssistantMessage content={responseB} image_urls={[]} />
+          {!picked && <button className="ab-pick-btn" onClick={() => handlePick('b')}>Prefer B</button>}
+        </div>
+      </div>
+      {picked && <div className="ab-thanks">Got it — preference saved 👍</div>}
+    </div>
+  );
+}
+
+// ── Download bar ──────────────────────────────────────────────────────────────
+
+const EXPORT_FORMATS = ['md', 'pdf', 'docx'];
+
+function DownloadBar({ content }) {
+  const [fmt, setFmt] = useState(() => localStorage.getItem('zc_export_fmt') || 'md');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFmtChange = (e) => {
+    const v = e.target.value;
+    setFmt(v);
+    localStorage.setItem('zc_export_fmt', v);
+  };
+
+  const handleDownload = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post(`${API_URL}/export`, { content, format: fmt });
+      const { url, filename } = res.data;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    } catch (e) {
+      setError('Export failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="download-bar">
+      <button className="download-btn" onClick={handleDownload} disabled={loading}>
+        <span className="material-symbols-outlined">download</span>
+        {loading ? 'Exporting…' : 'Download'}
+      </button>
+      <select className="download-fmt" value={fmt} onChange={handleFmtChange}>
+        {EXPORT_FORMATS.map(f => (
+          <option key={f} value={f}>{f.toUpperCase()}</option>
+        ))}
+      </select>
+      {error && <span className="download-error">{error}</span>}
+    </div>
+  );
+}
+
 // ── Code block with copy button ───────────────────────────────────────────────
 
 function CodeBlock({ language, children }) {
@@ -341,6 +447,12 @@ function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef(null);
 
+  // A/B comparison: fire every 6th chat assistant message
+  const chatMsgCount  = useRef(0);
+  const AB_EVERY      = 6;
+  // { msgIndex, userText } — set when a comparison should show for a message
+  const [abTarget, setAbTarget] = useState(null);
+
   // Derive initial view from URL, default to chats
   const pathToView = (p) => p.startsWith('/finance') ? 'finance' : 'chat';
   const [view, setView] = useState(() => pathToView(window.location.pathname));
@@ -484,23 +596,32 @@ function App() {
         { signal: controller.signal }
       );
       const data = response.data;
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.response,
-        agent: data.agent || AGENTS[agent].name,
-        model: AGENTS[agent].model,
-        web_search_used: data.web_search_used,
-        memory_used: data.memory_used,
-        context_used: data.context_used,
-        balance_fetched: data.balance_fetched,
-        file_generated: data.file_generated,
-        image_urls: data.image_urls || [],
-        memory_auto_saved: data.memory_auto_saved,
-        memory_fact: data.memory_fact,
-        history_searched: data.history_searched,
-        history_results: data.history_results || 0,
-        tutor_mode: data.tutor_mode,
-      }]);
+      setMessages(prev => {
+        const next = [...prev, {
+          role: 'assistant',
+          content: data.response,
+          agent: data.agent || AGENTS[agent].name,
+          model: AGENTS[agent].model,
+          web_search_used: data.web_search_used,
+          memory_used: data.memory_used,
+          context_used: data.context_used,
+          balance_fetched: data.balance_fetched,
+          file_generated: data.file_generated,
+          image_urls: data.image_urls || [],
+          memory_auto_saved: data.memory_auto_saved,
+          memory_fact: data.memory_fact,
+          history_searched: data.history_searched,
+          history_results: data.history_results || 0,
+          tutor_mode: data.tutor_mode,
+          _userText: userText,
+        }];
+        // Track chat messages (not Siri/Echo) for A/B trigger
+        chatMsgCount.current += 1;
+        if (chatMsgCount.current % AB_EVERY === 0) {
+          setAbTarget({ msgIndex: next.length - 1, userText });
+        }
+        return next;
+      });
       if (data.session_name) setCurrentChat(data.session_name);
       await fetchChats();
     } catch (error) {
@@ -759,9 +880,28 @@ function App() {
 
                 {/* Bubble */}
                 {msg.role === 'assistant' && (
-                  <div className="bubble bubble-assistant">
-                    <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
-                  </div>
+                  <>
+                    <div className="bubble bubble-assistant">
+                      <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
+                    </div>
+                    {msg.tutor_mode && (
+                      <DownloadBar content={msg.content} />
+                    )}
+                    {/* A/B comparison — only for the targeted message, chat source only */}
+                    {abTarget && abTarget.msgIndex === idx && (
+                      <ABComparison
+                        messageText={abTarget.userText}
+                        responseA={msg.content}
+                        clientId={CLIENT_ID}
+                        onPick={(preferred) => {
+                          setMessages(prev => prev.map((m, i) =>
+                            i === idx ? { ...m, content: preferred } : m
+                          ));
+                          setAbTarget(null);
+                        }}
+                      />
+                    )}
+                  </>
                 )}
                 {msg.role === 'user' && (
                   <div className="bubble bubble-user">
