@@ -749,7 +749,7 @@ function App() {
           Search Chats
         </button>
 
-        {/* Chat list */}
+        {/* Chat list — scrollable middle region */}
         <div className="chat-list-label">Recent Chats</div>
         <nav className="chat-list">
           {chats.length === 0 && (
@@ -773,16 +773,30 @@ function App() {
           ))}
         </nav>
 
-        {/* Finance / Chat toggle nav */}
-        <button
-          className="sidebar-finance-btn"
-          onClick={() => { navigateTo(view === 'finance' ? 'chat' : 'finance'); setSidebarOpen(false); }}
-        >
-          <span className="material-symbols-outlined">
-            {view === 'finance' ? 'chat_bubble' : 'account_balance'}
-          </span>
-          {view === 'finance' ? 'Chat' : 'Finance'}
-        </button>
+        {/* Bottom nav — pinned above user card */}
+        <div className="sidebar-nav-footer">
+          <div className="sidebar-nav-label">Apps</div>
+
+          <button
+            className={`sidebar-finance-btn ${view === 'finance' ? 'active' : ''}`}
+            onClick={() => { navigateTo('finance'); setSidebarOpen(false); }}
+          >
+            <span className="material-symbols-outlined">account_balance</span>
+            Finance
+          </button>
+
+          <button className="sidebar-finance-btn sidebar-btn-soon" disabled>
+            <span className="material-symbols-outlined">view_kanban</span>
+            Trello
+            <span className="sidebar-soon-badge">Soon</span>
+          </button>
+
+          <button className="sidebar-finance-btn sidebar-btn-soon" disabled>
+            <span className="material-symbols-outlined">sports_basketball</span>
+            HoopCipher
+            <span className="sidebar-soon-badge">Soon</span>
+          </button>
+        </div>
 
         {/* User section at bottom */}
         <div className="sidebar-user">
