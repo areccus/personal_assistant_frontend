@@ -23,7 +23,7 @@ const AGENTS = {
   jarvis: {
     name: 'Jarvis',
     emoji: '🤖',
-    model: 'qwen3.5 (local)',
+    model: 'qwen3:14b (local)',
     description: 'Fast local AI for quick questions, home control, and daily tasks',
     placeholder: 'Ask Jarvis anything...',
   },
@@ -460,8 +460,23 @@ function App() {
   // Derive initial view from URL, default to chats
   const pathToView = (p) => p.startsWith('/finance') ? 'finance' : 'chat';
   const [view, setView] = useState(() => pathToView(window.location.pathname));
+  const [financeError, setFinanceError] = useState(null);
 
-  const navigateTo = (v) => {
+  const navigateTo = async (v) => {
+    if (v === 'finance') {
+      try {
+        const res = await axios.get(`${API_URL}/finance/access`);
+        if (!res.data.allowed) {
+          setFinanceError(res.data.reason || 'Not authorized.');
+          return;
+        }
+      } catch (err) {
+        const msg = err.response?.data?.reason || 'Your IP is not authorized to view finances.';
+        setFinanceError(msg);
+        return;
+      }
+      setFinanceError(null);
+    }
     const path = v === 'finance' ? '/finance' : '/chats';
     window.history.pushState({ view: v }, '', path);
     setView(v);
@@ -726,31 +741,32 @@ function App() {
       {/* ── SIDEBAR ── */}
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
 
-        {/* Brand */}
-        <div className="sidebar-brand">
-          <div>
-            <div className="brand-name">Chats</div>
-            <div className="brand-sub">AI Assistant</div>
+        {/* Top fixed section */}
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            <div>
+              <div className="brand-name">Chats</div>
+              <div className="brand-sub">AI Assistant</div>
+            </div>
+            <button className="theme-toggle" onClick={toggleTheme} title={theme === 'tahoe' ? 'Switch to Dark' : 'Switch to Tahoe'}>
+              <div className="theme-toggle-orb" />
+            </button>
           </div>
-          <button className="theme-toggle" onClick={toggleTheme} title={theme === 'tahoe' ? 'Switch to Dark' : 'Switch to Tahoe'}>
-            <div className="theme-toggle-orb" />
+
+          <button className="new-chat-btn" onClick={startNewChat}>
+            <span className="material-symbols-outlined">add</span>
+            New Chat
           </button>
+
+          <button className="search-chats-btn" onClick={() => setSearchOpen(true)}>
+            <span className="material-symbols-outlined">search</span>
+            Search Chats
+          </button>
+
+          <div className="chat-list-label">Recent Chats</div>
         </div>
 
-        {/* New Chat */}
-        <button className="new-chat-btn" onClick={startNewChat}>
-          <span className="material-symbols-outlined">add</span>
-          New Chat
-        </button>
-
-        {/* Search Chats */}
-        <button className="search-chats-btn" onClick={() => setSearchOpen(true)}>
-          <span className="material-symbols-outlined">search</span>
-          Search Chats
-        </button>
-
-        {/* Chat list — scrollable middle region */}
-        <div className="chat-list-label">Recent Chats</div>
+        {/* Scrollable chat list — fills all remaining space */}
         <nav className="chat-list">
           {chats.length === 0 && (
             <div className="chat-empty">No saved chats yet</div>
@@ -776,6 +792,13 @@ function App() {
         {/* Bottom nav — pinned above user card */}
         <div className="sidebar-nav-footer">
           <div className="sidebar-nav-label">Apps</div>
+
+          {financeError && (
+            <div className="finance-access-error">
+              <span className="material-symbols-outlined">lock</span>
+              {financeError}
+            </div>
+          )}
 
           <button
             className={`sidebar-finance-btn ${view === 'finance' ? 'active' : ''}`}
