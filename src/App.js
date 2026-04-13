@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import FinanceDashboard from './FinanceDashboard';
+import HoopCipherDashboard from './HoopCipherDashboard';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -458,7 +459,9 @@ function App() {
   const [abTarget, setAbTarget] = useState(null);
 
   // Derive initial view from URL, default to chats
-  const pathToView = (p) => p.startsWith('/finance') ? 'finance' : 'chat';
+  const pathToView = (p) =>
+    p.startsWith('/finance') ? 'finance' :
+    p.startsWith('/hoopcipher') ? 'hoopcipher' : 'chat';
   const [view, setView] = useState(() => pathToView(window.location.pathname));
   const [financeError, setFinanceError] = useState(null);
 
@@ -477,7 +480,7 @@ function App() {
       }
       setFinanceError(null);
     }
-    const path = v === 'finance' ? '/finance' : '/chats';
+    const path = v === 'finance' ? '/finance' : v === 'hoopcipher' ? '/hoopcipher' : '/chats';
     window.history.pushState({ view: v }, '', path);
     setView(v);
   };
@@ -814,10 +817,12 @@ function App() {
             <span className="sidebar-soon-badge">Soon</span>
           </button>
 
-          <button className="sidebar-finance-btn sidebar-btn-soon" disabled>
+          <button
+            className={`sidebar-finance-btn ${view === 'hoopcipher' ? 'active' : ''}`}
+            onClick={() => { navigateTo('hoopcipher'); setSidebarOpen(false); }}
+          >
             <span className="material-symbols-outlined">sports_basketball</span>
             HoopCipher
-            <span className="sidebar-soon-badge">Soon</span>
           </button>
         </div>
 
@@ -837,6 +842,11 @@ function App() {
         {/* Finance dashboard — replaces chat area */}
         {view === 'finance' && (
           <FinanceDashboard onBack={() => navigateTo('chat')} theme={theme} />
+        )}
+
+        {/* HoopCipher dashboard — replaces chat area */}
+        {view === 'hoopcipher' && (
+          <HoopCipherDashboard onBack={() => navigateTo('chat')} />
         )}
 
         {/* Chat view — top bar + messages + input */}
