@@ -23,7 +23,7 @@ const AGENTS = {
   jarvis: {
     name: 'Jarvis',
     emoji: '🤖',
-    model: 'qwen3:14b (local)',
+    model: 'qwen3.5:9b (local)',
     description: 'Fast local AI for quick questions, home control, and daily tasks',
     placeholder: 'Ask Jarvis anything...',
   },
