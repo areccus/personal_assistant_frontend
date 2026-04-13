@@ -410,14 +410,14 @@ body {
   padding: 4px 12px 8px;
 }
 
-.chat-list::-webkit-scrollbar { width: 4px; }
-.chat-list::-webkit-scrollbar-track { background: transparent; }
+.chat-list::-webkit-scrollbar { width: 5px; }
+.chat-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 3px; }
 .chat-list::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.18);
-  border-radius: 2px;
+  background: rgba(255,255,255,0.22);
+  border-radius: 3px;
 }
 .chat-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.32);
+  background: rgba(255,255,255,0.40);
 }
 
 /* ── SIDEBAR NAV FOOTER ─────────────────────────────────────── */
@@ -683,6 +683,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
   z-index: 1;
 
@@ -802,6 +803,7 @@ body {
 
 .messages-area {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-top: calc(var(--topbar-height) + 24px);
   padding-bottom: calc(var(--input-height) + 40px);

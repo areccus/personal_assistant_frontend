@@ -335,7 +335,7 @@ function AssistantMessage({ content, image_urls }) {
 // ── Swipe-to-delete chat item ─────────────────────────────────────────────────
 
 function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
-                    onSwitch, onDelete, onStartRename, onConfirmRename, onCancelRename, formatDate }) {
+                    onSwitch, onDelete, onStartRename, onConfirmRename, onCancelRename, formatDate, formatChatName }) {
   const [dragX, setDragX]     = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX   = useRef(null);
@@ -404,7 +404,7 @@ function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
             />
           ) : (
             <>
-              <span className="chat-name">{s.name}</span>
+              <span className="chat-name">{formatChatName(s.name)}</span>
               <span className="chat-date">{formatDate(s.updated_at)}</span>
             </>
           )}
@@ -672,6 +672,23 @@ function App() {
     setMessages(prev => [...prev, { role: 'system', content: `Switched to ${AGENTS[newAgent].name}` }]);
   };
 
+  const formatChatName = (name) => {
+    if (!name) return 'Chat';
+    // Match auto-generated names: prefix_MMDD_HHMMSS[_hexhash]
+    // e.g. auto_0412_213808_87abd6 | hc_0412_2138 | home_0412_2138
+    const match = name.match(/^([a-z]+)_(\d{2})(\d{2})_(\d{2})(\d{2})(?:\d{2})?(?:_[0-9a-f]+)?$/);
+    if (!match) return name; // user-renamed — show as-is
+    const [, prefix, month, day, hour, min] = match;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthName = months[parseInt(month, 10) - 1] || month;
+    const h = parseInt(hour, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const labels = { auto: '', hc: 'HoopCipher · ', home: 'Home · ', siri: 'Siri · ' };
+    const label = labels[prefix] ?? '';
+    return `${label}${monthName} ${parseInt(day, 10)}, ${h12}:${min} ${ampm}`;
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -788,6 +805,7 @@ function App() {
               onConfirmRename={confirmRename}
               onCancelRename={cancelRename}
               formatDate={formatDate}
+              formatChatName={formatChatName}
             />
           ))}
         </nav>
