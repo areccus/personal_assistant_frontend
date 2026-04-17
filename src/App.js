@@ -24,7 +24,7 @@ const AGENTS = {
   jarvis: {
     name: 'Jarvis',
     emoji: '🤖',
-    model: 'qwen3.5:9b (local)',
+    model: 'qwen3-14b-q3ks (local)',
     description: 'Fast local AI for quick questions, home control, and daily tasks',
     placeholder: 'Ask Jarvis anything...',
   },
@@ -674,19 +674,23 @@ function App() {
 
   const formatChatName = (name) => {
     if (!name) return 'Chat';
-    // Match auto-generated names: prefix_MMDD_HHMMSS[_hexhash]
-    // e.g. auto_0412_213808_87abd6 | hc_0412_2138 | home_0412_2138
-    const match = name.match(/^([a-z]+)_(\d{2})(\d{2})_(\d{2})(\d{2})(?:\d{2})?(?:_[0-9a-f]+)?$/);
-    if (!match) return name; // user-renamed — show as-is
-    const [, prefix, month, day, hour, min] = match;
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const monthName = months[parseInt(month, 10) - 1] || month;
-    const h = parseInt(hour, 10);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    const labels = { auto: '', hc: 'HoopCipher · ', home: 'Home · ', siri: 'Siri · ' };
-    const label = labels[prefix] ?? '';
-    return `${label}${monthName} ${parseInt(day, 10)}, ${h12}:${min} ${ampm}`;
+    // Strip trailing _xxxxxx hex uniqueness suffix (e.g. "Bet Scout_a3f9c1" → "Bet Scout")
+    const stripped = name.replace(/_[0-9a-f]{6}$/, '');
+    // Legacy: time-based fallback names like auto_0412_213808 or hc_0412_2138
+    const timeMatch = stripped.match(/^([a-z]+)_(\d{2})(\d{2})_(\d{2})(\d{2})(?:\d{2})?$/);
+    if (timeMatch) {
+      const [, prefix, month, day, hour, min] = timeMatch;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const monthName = months[parseInt(month, 10) - 1] || month;
+      const h = parseInt(hour, 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      const labels = { auto: '', hc: 'HoopCipher · ', home: 'Home · ', siri: 'Siri · ' };
+      const label = labels[prefix] ?? '';
+      return `${label}${monthName} ${parseInt(day, 10)}, ${h12}:${min} ${ampm}`;
+    }
+    // Descriptive synonym-pool name or user-renamed — show as-is (already readable)
+    return stripped;
   };
 
   const formatDate = (dateStr) => {

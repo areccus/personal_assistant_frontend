@@ -397,9 +397,9 @@ body {
   padding: 10px 8px 4px;
 }
 
-/* Scrollable middle — takes all remaining height between header and footer */
+/* Scrollable middle */
 .chat-list {
-  flex: 1 1 0;
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -407,7 +407,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 12px 8px;
+  padding: 4px 8px 8px;
 }
 
 .chat-list::-webkit-scrollbar { width: 5px; }
@@ -494,6 +494,8 @@ body {
   cursor: pointer;
   transition: all var(--ease);
   min-width: 0;
+  min-height: 44px;        /* prevents text from being clipped mid-character */
+  flex-shrink: 0;          /* items never compress smaller than their content */
 }
 
 .chat-item:hover { background: var(--surface-low); }
@@ -569,6 +571,27 @@ body {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-sm);
+  /* Entry animation — each item slides up when it first appears */
+  animation: chat-slide-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes chat-slide-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll-driven reveal — items slide up as they enter the scroll viewport */
+@supports (animation-timeline: view()) {
+  .chat-item-outer {
+    animation: chat-scroll-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 30%;
+  }
+
+  @keyframes chat-scroll-reveal {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 }
 
 .chat-delete-reveal {
