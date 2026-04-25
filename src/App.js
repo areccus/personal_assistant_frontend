@@ -7,7 +7,9 @@ import FinanceDashboard from './FinanceDashboard';
 import HoopCipherDashboard from './HoopCipherDashboard';
 import './App.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const PRIMARY_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const FALLBACK_API_URL = 'http://localhost:8081';
+let API_URL = PRIMARY_API_URL;
 
 // Stable per-browser identity so each device/tab gets its own session context.
 function getClientId() {
@@ -24,7 +26,7 @@ const AGENTS = {
   jarvis: {
     name: 'Jarvis',
     emoji: '🤖',
-    model: 'qwen3-14b-q3ks (local)',
+    model: 'Qwen3.5 9B (mlx)',
     description: 'Fast local AI for quick questions, home control, and daily tasks',
     placeholder: 'Ask Jarvis anything...',
   },
@@ -36,6 +38,49 @@ const AGENTS = {
     placeholder: 'Ask Friday anything...',
   },
 };
+
+const THINKING_PHRASES = [
+  "Thinking",
+  "Day Dreaming",
+  "Brainstorming",
+  "Mulling It Over",
+  "Letting It Stew",
+  "Noodling",
+  "Picking My Brain",
+  "Dwelling On It",
+  "Weighing The Options",
+  "Planning A Master Scheme",
+  "Bunseki",
+  "Conspiring",
+  "I Love It When A Plan Comes Together",
+  "Everything Is Proceeding As I Have Foreseen",
+  "Did You Ever Stop To Think, And Forget To Start Again?",
+  "The Wheel Is Turning, But The Hamster Is Dead",
+  "Dial-Up Internet Noises",
+  "Grinding The Gears",
+  "Rubbing Two Brain Cells Together",
+  "Consulting The Council (Of Me)",
+  "Executing Order 66…",
+  "I'll Take A Potato Chip... And EAT IT!",
+  "Just As Planned.",
+  "What A Drag... (Visualizing The Shogi Board)",
+  "Plotting... Hope Those Meddling Kids Don't Show Up.",
+  "Building My Inator",
+  "Think Mark",
+];
+
+function ThinkingPhrase() {
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * THINKING_PHRASES.length));
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setIdx(Math.floor(Math.random() * THINKING_PHRASES.length));
+    }, 12000);
+    return () => clearInterval(t);
+  }, []);
+
+  return <div key={idx} className="thinking-phrase">{THINKING_PHRASES[idx]}</div>;
+}
 
 // ── A/B Comparison ────────────────────────────────────────────────────────────
 
@@ -338,11 +383,16 @@ function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
                     onSwitch, onDelete, onStartRename, onConfirmRename, onCancelRename, formatDate, formatChatName }) {
   const [dragX, setDragX]     = useState(0);
   const [dragging, setDragging] = useState(false);
-  const startX   = useRef(null);
-  const THRESHOLD = 130;
+  const [snapOpen, setSnapOpen] = useState(false);
+  const startX = useRef(null);
+
+  const SNAP_THRESHOLD   = 60;
+  const DELETE_THRESHOLD = 170;
+  const SNAP_POS         = 128;
 
   const dragStart = (e) => {
     if (renamingChat === s.name) return;
+    if (snapOpen) { setDragX(0); setSnapOpen(false); return; }
     startX.current = e.touches ? e.touches[0].clientX : e.clientX;
     setDragging(true);
   };
@@ -351,29 +401,42 @@ function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
     if (!dragging || startX.current === null) return;
     const x     = e.touches ? e.touches[0].clientX : e.clientX;
     const delta = startX.current - x;
-    setDragX(delta > 0 ? Math.min(delta, THRESHOLD + 30) : 0);
+    setDragX(delta > 0 ? Math.min(delta, DELETE_THRESHOLD + 20) : 0);
   };
 
   const dragEnd = () => {
-    if (dragX >= THRESHOLD) onDelete(s.name);
-    else setDragX(0);
+    if (dragX >= DELETE_THRESHOLD)    onDelete(s.name);
+    else if (dragX >= SNAP_THRESHOLD) { setDragX(SNAP_POS); setSnapOpen(true); }
+    else                              { setDragX(0); setSnapOpen(false); }
     setDragging(false);
     startX.current = null;
   };
 
-  const progress = Math.min(dragX / THRESHOLD, 1);
+  const closeSnap = () => { setDragX(0); setSnapOpen(false); };
+
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    if (snapOpen) { closeSnap(); }
+    else { setDragX(SNAP_POS); setSnapOpen(true); }
+  };
+
+  const progress = Math.min(dragX / SNAP_POS, 1);
 
   return (
     <div className="chat-item-outer">
-      {/* Red reveal behind the item */}
-      <div className="chat-delete-reveal" style={{ opacity: progress }}>
-        <span className="material-symbols-outlined"
-              style={{ fontSize: dragX > 80 ? '22px' : '16px', transition: 'font-size 0.15s' }}>
-          close
-        </span>
+      {/* Reveal panel — edit (blue) + delete (red) */}
+      <div className="chat-reveal" style={{ opacity: Math.min(progress * 1.4, 1) }}>
+        <button className="reveal-btn reveal-edit"
+                onClick={(e) => { e.stopPropagation(); closeSnap(); onStartRename(s.name, e); }}>
+          <span className="material-symbols-outlined">edit</span>
+        </button>
+        <button className="reveal-btn reveal-delete"
+                onClick={(e) => { e.stopPropagation(); onDelete(s.name); }}>
+          <span className="material-symbols-outlined">close</span>
+        </button>
       </div>
 
-      {/* The draggable row */}
+      {/* Draggable row */}
       <div
         className={`chat-item ${s.name === currentChat ? 'active' : ''}`}
         style={{
@@ -385,10 +448,12 @@ function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
         onMouseDown={dragStart} onMouseMove={dragMove}
         onMouseUp={dragEnd}     onMouseLeave={dragEnd}
         onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd}
-        onClick={() => { if (dragX < 5 && renamingChat !== s.name) onSwitch(s.name); }}
+        onClick={() => {
+          if (snapOpen) { closeSnap(); return; }
+          if (dragX < 5 && renamingChat !== s.name) onSwitch(s.name);
+        }}
+        onContextMenu={handleContextMenu}
       >
-        <span className="material-symbols-outlined chat-item-icon">chat_bubble</span>
-
         <div className="chat-item-info">
           {renamingChat === s.name ? (
             <input
@@ -403,20 +468,11 @@ function ChatItem({ s, currentChat, renamingChat, renameValue, setRenameValue,
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <>
-              <span className="chat-name">{formatChatName(s.name)}</span>
-              <span className="chat-date">{formatDate(s.updated_at)}</span>
-            </>
+            <span className="chat-name">{formatChatName(s.name)}</span>
           )}
         </div>
-
-        {renamingChat !== s.name && (
-          <button className="chat-action-btn" title="Rename"
-                  onClick={(e) => { e.stopPropagation(); onStartRename(s.name, e); }}>
-            <span className="material-symbols-outlined">edit</span>
-          </button>
-        )}
       </div>
+
     </div>
   );
 }
@@ -441,6 +497,9 @@ function App() {
   useEffect(() => {
     document.body.classList.toggle('tahoe', theme === 'tahoe');
   }, [theme]);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const fileInputRef = useRef(null);
+
   const [chats, setChats]                 = useState([]);
   const [currentChat, setCurrentChat]     = useState(null);
   const [sidebarOpen, setSidebarOpen]     = useState(false);
@@ -492,12 +551,19 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  const [streamState, setStreamState] = useState(null); // { content, tks } during MLX streaming
+
   const messagesEndRef = useRef(null);
   const abortRef       = useRef(null);
   const searchTimer    = useRef(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-  useEffect(() => { fetchChats(); }, []);
+  useEffect(() => {
+    if (PRIMARY_API_URL === FALLBACK_API_URL) { fetchChats(); return; }
+    axios.get(`${PRIMARY_API_URL}/sessions`, { timeout: 1500 })
+      .catch(() => { API_URL = FALLBACK_API_URL; })
+      .finally(() => fetchChats());
+  }, []);
 
   // Focus search input when modal opens
   useEffect(() => {
@@ -600,54 +666,171 @@ function App() {
     }
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      const isImage = file.type.startsWith('image/');
+      if (isImage) {
+        reader.onload = (ev) => {
+          const dataUrl = ev.target.result;
+          setAttachedFiles(prev => [...prev, {
+            name: file.name, isImage: true,
+            mimeType: file.type,
+            base64: dataUrl.split(',')[1],
+            previewUrl: dataUrl,
+          }]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        reader.onload = (ev) => {
+          setAttachedFiles(prev => [...prev, {
+            name: file.name, isImage: false,
+            content: ev.target.result,
+          }]);
+        };
+        reader.readAsText(file);
+      }
+    });
+    e.target.value = '';
+  };
+
+  const removeAttachment = (idx) =>
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+
+  const _addAssistantMsg = (data, userText) => {
+    setMessages(prev => {
+      const next = [...prev, {
+        role: 'assistant',
+        content: data.response,
+        agent: data.agent || AGENTS[agent].name,
+        model: AGENTS[agent].model,
+        web_search_used: data.web_search_used,
+        memory_used: data.memory_used,
+        context_used: data.context_used,
+        balance_fetched: data.balance_fetched,
+        file_generated: data.file_generated,
+        image_urls: data.image_urls || [],
+        memory_auto_saved: data.memory_auto_saved,
+        memory_fact: data.memory_fact,
+        history_searched: data.history_searched,
+        history_results: data.history_results || 0,
+        tutor_mode: data.tutor_mode,
+        tks: data.tks ?? null,
+        _userText: userText,
+      }];
+      chatMsgCount.current += 1;
+      if (chatMsgCount.current % AB_EVERY === 0) {
+        setAbTarget({ msgIndex: next.length - 1, userText });
+      }
+      return next;
+    });
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
     const userText = input.trim();
-    setMessages(prev => [...prev, { role: 'user', content: userText }]);
+    const snapshot = [...attachedFiles];
+
+    // Build display message with file names noted
+    const fileLabels = snapshot.map(f => f.isImage ? `📷 ${f.name}` : `📄 ${f.name}`).join('  ');
+    const displayText = [fileLabels, userText].filter(Boolean).join('\n');
+    setMessages(prev => [...prev, { role: 'user', content: displayText }]);
     setInput('');
+    setAttachedFiles([]);
     setIsLoading(true);
+    setStreamState(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const routedMessage = agent === 'friday' ? `ask friday ${userText}` : userText;
+    // Inject text file contents as code blocks into the message
+    const textFiles = snapshot.filter(f => !f.isImage);
+    const imageFiles = snapshot.filter(f => f.isImage);
+    let finalMessage = userText;
+    if (textFiles.length > 0) {
+      const blocks = textFiles.map(f => {
+        const ext = f.name.split('.').pop().toLowerCase();
+        return `**File: ${f.name}**\n\`\`\`${ext}\n${f.content}\n\`\`\``;
+      }).join('\n\n');
+      finalMessage = blocks + (finalMessage ? '\n\n' + finalMessage : '');
+    }
+
+    // Images force Friday (Jarvis is text-only)
+    const hasImages = imageFiles.length > 0;
+    const routedMessage = (agent === 'friday' || hasImages)
+      ? `ask friday ${finalMessage}`
+      : finalMessage;
+
+    const body = {
+      message: routedMessage,
+      client_id: CLIENT_ID,
+      session_name: currentChat,
+    };
+    if (hasImages) {
+      body.attached_images = imageFiles.map(f => ({
+        data: f.base64, media_type: f.mimeType,
+      }));
+    }
+
     try {
-      const response = await axios.post(
-        `${API_URL}/ask`,
-        { message: routedMessage, client_id: CLIENT_ID },
-        { signal: controller.signal }
-      );
-      const data = response.data;
-      setMessages(prev => {
-        const next = [...prev, {
-          role: 'assistant',
-          content: data.response,
-          agent: data.agent || AGENTS[agent].name,
-          model: AGENTS[agent].model,
-          web_search_used: data.web_search_used,
-          memory_used: data.memory_used,
-          context_used: data.context_used,
-          balance_fetched: data.balance_fetched,
-          file_generated: data.file_generated,
-          image_urls: data.image_urls || [],
-          memory_auto_saved: data.memory_auto_saved,
-          memory_fact: data.memory_fact,
-          history_searched: data.history_searched,
-          history_results: data.history_results || 0,
-          tutor_mode: data.tutor_mode,
-          _userText: userText,
-        }];
-        // Track chat messages (not Siri/Echo) for A/B trigger
-        chatMsgCount.current += 1;
-        if (chatMsgCount.current % AB_EVERY === 0) {
-          setAbTarget({ msgIndex: next.length - 1, userText });
-        }
-        return next;
+      const resp = await fetch(`${API_URL}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
       });
-      if (data.session_name) setCurrentChat(data.session_name);
-      await fetchChats();
+
+      if (!resp.ok && !resp.headers.get('content-type')?.includes('text/event-stream')) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const contentType = resp.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream')) {
+        // ── Streaming MLX path ──────────────────────────────────────────────
+        const reader  = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const raw = trimmed.slice(6).trim();
+            if (!raw) continue;
+            let evt;
+            try { evt = JSON.parse(raw); } catch { continue; }
+
+            if (evt.type === 'token') {
+              setStreamState(prev => ({
+                content: (prev?.content || '') + evt.delta,
+                tks: evt.tks,
+              }));
+            } else if (evt.type === 'done') {
+              _addAssistantMsg(evt, userText);
+              if (evt.session_name) setCurrentChat(evt.session_name);
+              await fetchChats();
+            } else if (evt.type === 'error') {
+              setMessages(prev => [...prev, { role: 'error', content: `Router error: ${evt.message}` }]);
+            }
+          }
+        }
+      } else {
+        // ── Non-streaming JSON path (Friday, home control) ──────────────────
+        const data = await resp.json();
+        _addAssistantMsg(data, userText);
+        if (data.session_name) setCurrentChat(data.session_name);
+        await fetchChats();
+      }
     } catch (error) {
-      if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+      if (error.name === 'AbortError') {
         setMessages(prev => prev.slice(0, -1));
         setInput(userText);
       } else {
@@ -658,6 +841,7 @@ function App() {
       }
     } finally {
       setIsLoading(false);
+      setStreamState(null);
       abortRef.current = null;
     }
   };
@@ -957,6 +1141,9 @@ function App() {
                     <div className="bubble bubble-assistant">
                       <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
                     </div>
+                    {msg.tks != null && (
+                      <div className="tks-line">{Math.round(msg.tks)} tok/s</div>
+                    )}
                     {msg.tutor_mode && (
                       <DownloadBar content={msg.content} />
                     )}
@@ -992,7 +1179,7 @@ function App() {
               </div>
             ))}
 
-            {/* Typing indicator */}
+            {/* Loading / streaming row */}
             {isLoading && (
               <div className="msg-row msg-assistant">
                 <div className="msg-label">
@@ -1000,12 +1187,21 @@ function App() {
                     <span className="material-symbols-outlined">smart_toy</span>
                   </div>
                   <span className="msg-label-text">{currentAgent.name} Intelligence</span>
+                  {streamState && streamState.tks > 0 && (
+                    <span className="tks-badge">{Math.round(streamState.tks)} tok/s</span>
+                  )}
                 </div>
                 <div className="bubble bubble-assistant">
-                  <div className="typing">
-                    <span /><span /><span />
-                  </div>
+                  {!streamState || streamState.content === '' ? (
+                    <div className="typing"><span /><span /><span /></div>
+                  ) : (
+                    <div className="streaming-content">
+                      {streamState.content}
+                      <span className="stream-cursor" />
+                    </div>
+                  )}
                 </div>
+                {(!streamState || streamState.content === '') && <ThinkingPhrase />}
               </div>
             )}
 
@@ -1015,26 +1211,56 @@ function App() {
 
         {/* Floating input pill */}
         <div className="input-area">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".py,.js,.ts,.jsx,.tsx,.html,.css,.json,.yaml,.yml,.txt,.md,.sql,.sh,.rs,.go,.java,.cpp,.c,.rb,.php,.swift,.kt,image/png,image/jpeg,image/gif,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
           <div className="input-pill-wrap">
             <div className="input-pill">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={currentAgent.placeholder}
-                rows="1"
-                disabled={isLoading}
-                className="pill-textarea"
-              />
-              {isLoading ? (
-                <button onClick={cancelRequest} className="stop-btn">
-                  <span className="material-symbols-outlined">stop</span>
-                </button>
-              ) : (
-                <button onClick={sendMessage} disabled={!input.trim()} className="send-btn">
-                  <span className="material-symbols-outlined">arrow_upward</span>
-                </button>
+              {attachedFiles.length > 0 && (
+                <div className="attachment-chips">
+                  {attachedFiles.map((f, i) => (
+                    <div key={i} className="attach-chip">
+                      {f.isImage
+                        ? <img src={f.previewUrl} alt={f.name} className="attach-chip-thumb" />
+                        : <span className="material-symbols-outlined attach-chip-icon">description</span>
+                      }
+                      <span className="attach-chip-name">{f.name}</span>
+                      <button className="attach-chip-remove" onClick={() => removeAttachment(i)}>
+                        <span className="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
+              <div className="input-pill-row">
+                <button className="attach-btn" type="button" title="Attach file"
+                        onClick={() => fileInputRef.current?.click()}>
+                  <span className="material-symbols-outlined">attach_file</span>
+                </button>
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={currentAgent.placeholder}
+                  rows="1"
+                  disabled={isLoading}
+                  className="pill-textarea"
+                />
+                {isLoading ? (
+                  <button onClick={cancelRequest} className="stop-btn">
+                    <span className="material-symbols-outlined">stop</span>
+                  </button>
+                ) : (
+                  <button onClick={sendMessage} disabled={!input.trim() && attachedFiles.length === 0} className="send-btn">
+                    <span className="material-symbols-outlined">arrow_upward</span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
           </div>
