@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import FinanceDashboard from './FinanceDashboard';
 import HoopCipherDashboard from './HoopCipherDashboard';
-import ProjectsView from './ProjectsView';
+import TasksView from './TasksView';
+import NewsView from './NewsView';
 import Sidebar from './components/layout/Sidebar';
 import ThinkingPhrase from './components/ui/ThinkingPhrase';
 import { AssistantMessage } from './components/ui/ABComparison';
@@ -11,6 +12,18 @@ import DownloadBar from './components/ui/DownloadBar';
 import { useChat } from './hooks/useChat';
 import { AGENTS, CLIENT_ID } from './constants';
 import './App.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
+const WELCOME_MESSAGES = [
+  "How can I help you today?",
+  "What's on your mind?",
+  "Ready when you are.",
+  "What are we working on?",
+  "Ask me anything.",
+  "What do you need?",
+  "What can I help you with?",
+];
 
 function App() {
   const {
@@ -61,13 +74,80 @@ function App() {
   } = useChat();
 
   const currentAgent = AGENTS[agent];
+  const [newsInArticle, setNewsInArticle] = useState(false);
+
+  // ── Real viewport height — recalculates on resume so iOS PWA bar stays gone ──
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty('--real-vh', `${window.innerHeight}px`);
+    };
+    // iOS hasn't finished restoring the viewport at visibilitychange/pageshow,
+    // so we set immediately and again after it settles.
+    const setVhAfterSettle = () => { setVh(); setTimeout(setVh, 120); };
+    setVh();
+    window.addEventListener('resize', setVh);
+    document.addEventListener('visibilitychange', setVhAfterSettle);
+    window.addEventListener('pageshow', setVhAfterSettle);
+    return () => {
+      window.removeEventListener('resize', setVh);
+      document.removeEventListener('visibilitychange', setVhAfterSettle);
+      window.removeEventListener('pageshow', setVhAfterSettle);
+    };
+  }, []);
+
+  // ── Local UI state ────────────────────────────────────────────────────────────
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    localStorage.getItem('zc_sidebar_collapsed') === 'true'
+  );
+  const [welcomeMsg] = useState(
+    () => WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)]
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [agentDropOpen, setAgentDropOpen] = useState(false);
+
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('zc_sidebar_collapsed', next.toString());
+      return next;
+    });
+  };
+
+  // Close model dropdown when clicking outside
+  useEffect(() => {
+    if (!agentDropOpen) return;
+    const close = (e) => {
+      if (!e.target.closest('.model-selector-wrap')) setAgentDropOpen(false);
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [agentDropOpen]);
 
   return (
-    <div className={`shell ${theme}`}>
+    <>
+      {/* ── Animated background orbs — outside shell so they can't affect its layout ── */}
+      <div className="orb orb-teal" />
+      <div className="orb orb-purple" />
+      <div className="bg-overlay" />
+      <div className="bg-noise" />
 
-      {/* ── Ambient background glows ── */}
-      <div className="glow-primary" />
-      <div className="glow-tertiary" />
+      <div className={`shell ${theme}${sidebarCollapsed ? ' sidebar-desktop-hidden' : ''}`}>
+
+      {/* ── Settings popup ── */}
+      {settingsOpen && (
+        <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
+          <div className="settings-popup" onClick={e => e.stopPropagation()}>
+            <div className="settings-header">Settings</div>
+            <button className="settings-item" onClick={toggleTheme}>
+              <span className="material-symbols-outlined">
+                {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+              </span>
+              {theme === 'dark' ? 'Light Theme' : 'Dark Theme'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Chat Search Modal ── */}
       {searchOpen && (
@@ -84,16 +164,13 @@ function App() {
                 onKeyDown={e => e.key === 'Escape' && setSearchOpen(false)}
               />
               {searchQuery && (
-                <button className="search-clear" onClick={() => { setSearchOpen(false); }}>
+                <button className="search-clear" onClick={() => setSearchOpen(false)}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               )}
             </div>
-
             <div className="search-results">
-              {searchLoading && (
-                <div className="search-empty">Searching...</div>
-              )}
+              {searchLoading && <div className="search-empty">Searching...</div>}
               {!searchLoading && searchQuery && searchResults.length === 0 && (
                 <div className="search-empty">No chats found for "{searchQuery}"</div>
               )}
@@ -119,12 +196,45 @@ function App() {
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
 
+      {/* ── Floating action buttons ── */}
+
+      {/* Hamburger: chat always; news feed only (not when article open) */}
+      {(view === 'chat' || (view === 'news' && !newsInArticle)) && (
+        <button
+          className="fab-sidebar-open floating-fab"
+          onClick={() => setSidebarOpen(true)}
+          title="Open sidebar"
+        >
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+      )}
+
+      {/* Desktop re-expand: same condition as hamburger */}
+      {(view === 'chat' || (view === 'news' && !newsInArticle)) && (
+        <button
+          className="fab-sidebar-expand floating-fab"
+          onClick={toggleSidebarCollapsed}
+          title="Expand sidebar"
+        >
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+      )}
+
+      {/* New chat: chat only */}
+      {view === 'chat' && (
+        <button
+          className="fab-new-chat floating-fab"
+          onClick={startNewChat}
+          title="New chat"
+        >
+          <span className="material-symbols-outlined">edit_note</span>
+        </button>
+      )}
+
       {/* ── SIDEBAR ── */}
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-        theme={theme}
-        toggleTheme={toggleTheme}
         startNewChat={startNewChat}
         setSearchOpen={setSearchOpen}
         chats={chats}
@@ -141,119 +251,108 @@ function App() {
         navigateTo={navigateTo}
         financeError={financeError}
         currentAgent={currentAgent}
+        onCollapse={toggleSidebarCollapsed}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       {/* ── MAIN ── */}
       <main className="main">
 
-        {/* Finance dashboard — replaces chat area */}
         {view === 'finance' && (
           <FinanceDashboard onBack={() => navigateTo('chat')} theme={theme} />
         )}
 
-        {/* HoopCipher dashboard — replaces chat area */}
         {view === 'hoopcipher' && (
           <HoopCipherDashboard onBack={() => navigateTo('chat')} />
         )}
 
-        {/* Projects board */}
-        {view === 'projects' && (
-          <ProjectsView onBack={() => navigateTo('chat')} />
+        {view === 'tasks' && (
+          <TasksView onBack={() => navigateTo('chat')} />
         )}
 
-        {/* Chat view — top bar + messages + input */}
+        {view === 'news' && (
+          <NewsView onBack={() => navigateTo('chat')} onArticleChange={setNewsInArticle} />
+        )}
+
         {view === 'chat' && <>
-        <header className="top-bar">
-          {/* Hamburger — mobile only */}
-          <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-            <span className="material-symbols-outlined">menu</span>
-          </button>
 
-          <div className="topbar-title">ZeroClaw</div>
-
-          {/* Agent switcher pills */}
-          <div className="agent-pills">
-            {Object.entries(AGENTS).map(([key, info]) => (
-              <button
-                key={key}
-                className={`agent-pill ${agent === key ? 'active' : ''}`}
-                onClick={() => switchAgent(key)}
-              >
-                {info.emoji} {info.name}
-              </button>
-            ))}
-          </div>
-
-          {/* New chat shortcut in topbar */}
-          <button className="icon-btn" onClick={startNewChat} title="New chat">
-            <span className="material-symbols-outlined">edit_note</span>
-          </button>
-        </header>
-
-        {/* Scrollable chat area */}
         <section className="messages-area">
           <div className="messages-inner">
 
-            {/* Empty state */}
             {messages.length === 0 && (
               <div className="empty-state">
-                <div className="empty-logo">{currentAgent.emoji}</div>
-                <h2>{currentAgent.name}</h2>
-                <p>{currentAgent.description}</p>
-                <div className="agent-cards">
-                  {Object.entries(AGENTS).map(([key, info]) => (
-                    <div
-                      key={key}
-                      className={`agent-card ${agent === key ? 'active' : ''}`}
-                      onClick={() => switchAgent(key)}
-                    >
-                      <div className="agent-card-title">{info.emoji} {info.name}</div>
-                      <div className="agent-card-model">{info.model}</div>
-                      <div className="agent-card-desc">{info.description}</div>
-                    </div>
+                <h2 className="welcome-heading">{welcomeMsg}</h2>
+                <p className="welcome-sub">Powered by {currentAgent.name} · {currentAgent.model}</p>
+                <div className="welcome-chips">
+                  {['Explain quantum computing', 'Write a Python script', 'Help me plan my week', "What's the best way to learn design?"].map(prompt => (
+                    <button key={prompt} className="welcome-chip" onClick={() => setInput(prompt)}>
+                      {prompt}
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Messages */}
             {messages.map((msg, idx) => (
               <div key={idx} className={`msg-row msg-${msg.role}`}>
 
-                {/* Assistant label */}
-                {msg.role === 'assistant' && (
-                  <div className="msg-label">
-                    <div className="msg-label-icon">
-                      <span className="material-symbols-outlined">smart_toy</span>
-                    </div>
-                    <span className="msg-label-text">{msg.agent || currentAgent.name} Intelligence</span>
-                    {msg.model && <span className="model-pill">{msg.model}</span>}
-                    <div className="meta-badges">
-                      {msg.web_search_used   && <span className="meta-badge search">🔍 web</span>}
-                      {msg.tutor_mode        && <span className="meta-badge tutor">🎓 tutor mode</span>}
-                      {msg.memory_used       && <span className="meta-badge memory">🧠 memory</span>}
-                      {msg.context_used      && <span className="meta-badge ctx">📋 context</span>}
-                      {msg.balance_fetched   && <span className="meta-badge balance">💳 balance</span>}
-                      {msg.file_generated    && <span className="meta-badge file">📄 file</span>}
-                      {msg.memory_auto_saved && <span className="meta-badge remembered" title={msg.memory_fact ? `${msg.memory_fact.key}: ${msg.memory_fact.value}` : ''}>💾 remembered</span>}
-                      {msg.history_searched  && <span className="meta-badge history">🕓 {msg.history_results} past</span>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Bubble */}
                 {msg.role === 'assistant' && (
                   <>
-                    <div className="bubble bubble-assistant">
-                      <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
+                    <div className="assistant-card">
+                      <div className="card-header">
+                        <div className="card-header-dot" />
+                        <span className="card-header-name">{msg.agent || currentAgent.name}</span>
+                        {msg.model && <span className="model-pill">{msg.model}</span>}
+                        <div className="meta-badges">
+                          {msg.web_search_used   && <span className="meta-badge search">🔍 web</span>}
+                          {msg.tutor_mode        && <span className="meta-badge tutor">🎓 tutor mode</span>}
+                          {msg.memory_used       && <span className="meta-badge memory">🧠 memory</span>}
+                          {msg.context_used      && <span className="meta-badge ctx">📋 context</span>}
+                          {msg.balance_fetched   && <span className="meta-badge balance">💳 balance</span>}
+                          {msg.file_generated    && <span className="meta-badge file">📄 file</span>}
+                          {msg.memory_auto_saved && <span className="meta-badge remembered" title={msg.memory_fact ? `${msg.memory_fact.key}: ${msg.memory_fact.value}` : ''}>💾 remembered</span>}
+                          {msg.history_searched  && <span className="meta-badge history">🕓 {msg.history_results} past</span>}
+                        </div>
+                      </div>
+                      <div className="card-body">
+                        <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
+                      </div>
+                      <div className="card-actions">
+                        <button className="card-action-btn" onClick={() => { try { navigator.clipboard.writeText(msg.content); } catch(e) {} }}>
+                          <span className="material-symbols-outlined">content_copy</span>
+                          Copy
+                        </button>
+                        {['up', 'down'].map(dir => (
+                          <button
+                            key={dir}
+                            className={`card-action-btn${msg.rating === dir ? ' card-action-btn--rated' : ''}`}
+                            disabled={msg.rating != null}
+                            onClick={() => {
+                              setMessages(prev => prev.map((m, i) => i === idx ? { ...m, rating: dir } : m));
+                              fetch(`${API_URL}/thumbs`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  direction: dir,
+                                  user_message: msg._userText || '',
+                                  ai_response: msg.content || '',
+                                }),
+                              }).catch(() => {});
+                            }}
+                          >
+                            <span className="material-symbols-outlined">
+                              {dir === 'up'
+                                ? (msg.rating === 'up' ? 'thumb_up' : 'thumb_up')
+                                : (msg.rating === 'down' ? 'thumb_down' : 'thumb_down')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     {msg.tks != null && (
                       <div className="tks-line">{Math.round(msg.tks)} tok/s</div>
                     )}
-                    {msg.tutor_mode && (
-                      <DownloadBar content={msg.content} />
-                    )}
-                    {/* A/B comparison — only for the targeted message, chat source only */}
+                    {msg.tutor_mode && <DownloadBar content={msg.content} />}
                     {abTarget && abTarget.msgIndex === idx && (
                       <ABComparison
                         messageText={abTarget.userText}
@@ -270,10 +369,8 @@ function App() {
                   </>
                 )}
                 {msg.role === 'user' && (
-                  <div className="bubble bubble-user">
-                    <CopyableBubble text={msg.content}>
-                      {msg.content}
-                    </CopyableBubble>
+                  <div className="bubble-user">
+                    <CopyableBubble text={msg.content}>{msg.content}</CopyableBubble>
                   </div>
                 )}
                 {msg.role === 'error' && (
@@ -285,21 +382,21 @@ function App() {
               </div>
             ))}
 
-            {/* Loading / streaming row */}
             {isLoading && (
               <div className="msg-row msg-assistant">
-                <div className="msg-label">
-                  <div className="msg-label-icon">
-                    <span className="material-symbols-outlined">smart_toy</span>
+                <div className="assistant-card">
+                  <div className="card-header">
+                    <div className="card-header-dot" />
+                    <span className="card-header-name">{currentAgent.name}</span>
+                    {streamState && streamState.tks > 0 && (
+                      <span className="tks-badge">{Math.round(streamState.tks)} tok/s</span>
+                    )}
                   </div>
-                  <span className="msg-label-text">{currentAgent.name} Intelligence</span>
-                  {streamState && streamState.tks > 0 && (
-                    <span className="tks-badge">{Math.round(streamState.tks)} tok/s</span>
-                  )}
-                </div>
-                <div className="bubble bubble-assistant">
                   {!streamState || streamState.content === '' ? (
-                    <div className="typing"><span /><span /><span /></div>
+                    <div className="card-loading">
+                      <div className="typing"><span /><span /><span /></div>
+                      <ThinkingPhrase />
+                    </div>
                   ) : (
                     <div className="streaming-content">
                       {streamState.content}
@@ -307,7 +404,6 @@ function App() {
                     </div>
                   )}
                 </div>
-                {(!streamState || streamState.content === '') && <ThinkingPhrase />}
               </div>
             )}
 
@@ -315,7 +411,7 @@ function App() {
           </div>
         </section>
 
-        {/* Floating input pill */}
+        {/* Input bar */}
         <div className="input-area">
           <input
             ref={fileInputRef}
@@ -344,10 +440,16 @@ function App() {
                 </div>
               )}
               <div className="input-pill-row">
-                <button className="attach-btn" type="button" title="Attach file"
-                        onClick={() => fileInputRef.current?.click()}>
+
+                <button
+                  className="attach-btn"
+                  type="button"
+                  title="Attach file"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <span className="material-symbols-outlined">attach_file</span>
                 </button>
+
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -357,12 +459,52 @@ function App() {
                   disabled={isLoading}
                   className="pill-textarea"
                 />
+
+                {/* Model selector — right side, before send */}
+                <div className="model-selector-wrap">
+                  <button
+                    className="model-selector-btn"
+                    onClick={() => setAgentDropOpen(prev => !prev)}
+                    title={`Switch model (${currentAgent.name})`}
+                  >
+                    {/* Desktop: name + chevron */}
+                    <span className="model-selector-name">{currentAgent.name}</span>
+                    <span className="material-symbols-outlined model-chevron">expand_more</span>
+                    {/* Mobile: icon only */}
+                    <span className="material-symbols-outlined model-selector-icon-mobile">tune</span>
+                  </button>
+                  {agentDropOpen && (
+                    <div className="model-dropdown">
+                      {Object.entries(AGENTS).map(([key, info]) => (
+                        <button
+                          key={key}
+                          className={`model-option ${agent === key ? 'active' : ''}`}
+                          onClick={() => { switchAgent(key); setAgentDropOpen(false); }}
+                        >
+                          <span className="model-option-emoji">{info.emoji}</span>
+                          <span className="model-option-info">
+                            <span className="model-option-name">{info.name}</span>
+                            <span className="model-option-desc">{info.model}</span>
+                          </span>
+                          {agent === key && (
+                            <span className="material-symbols-outlined model-option-check">check</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {isLoading ? (
                   <button onClick={cancelRequest} className="stop-btn">
                     <span className="material-symbols-outlined">stop</span>
                   </button>
                 ) : (
-                  <button onClick={sendMessage} disabled={!input.trim() && attachedFiles.length === 0} className="send-btn">
+                  <button
+                    onClick={sendMessage}
+                    disabled={!input.trim() && attachedFiles.length === 0}
+                    className="send-btn"
+                  >
                     <span className="material-symbols-outlined">arrow_upward</span>
                   </button>
                 )}
@@ -375,6 +517,7 @@ function App() {
 
       </main>
     </div>
+    </>
   );
 }
 

@@ -18,66 +18,85 @@ const PRIORITIES = [
 
 const getPriority = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[0];
 
-export default function ProjectsView({ onBack }) {
-  const [cards, setCards]       = useState([]);
-  const [detail, setDetail]     = useState(null); // card being viewed in modal
-  const [addingIn, setAddingIn] = useState(null); // column id where inline add is open
+function formatDueDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const now = new Date();
+  const opts = { month: 'short', day: 'numeric' };
+  if (y !== now.getFullYear()) opts.year = 'numeric';
+  return date.toLocaleDateString('en-US', opts);
+}
+
+function isOverdue(dateStr) {
+  if (!dateStr) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const due = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
+export default function TasksView({ onBack }) {
+  const [tasks, setTasks]     = useState([]);
+  const [detail, setDetail]   = useState(null);
+  const [addingIn, setAddingIn] = useState(null);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const res = await axios.get(`${API}/projects/cards`);
-    setCards(res.data);
+    const res = await axios.get(`${API}/tasks`);
+    setTasks(res.data);
   };
 
   const refresh = (updated) =>
-    setCards(prev => prev.map(c => c.id === updated.id ? updated : c));
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
 
-  // ── Cards ──────────────────────────────────────────────────────────────────
+  // ── Tasks ──────────────────────────────────────────────────────────────────
 
-  const createCard = async (title, status) => {
+  const createTask = async (title, status) => {
     if (!title.trim()) return;
-    const res = await axios.post(`${API}/projects/cards`, { title: title.trim(), status });
-    setCards(prev => [...prev, res.data]);
+    const res = await axios.post(`${API}/tasks`, { title: title.trim(), status });
+    setTasks(prev => [...prev, res.data]);
     setAddingIn(null);
   };
 
-  const patchCard = async (id, fields) => {
-    const res = await axios.patch(`${API}/projects/cards/${id}`, fields);
+  const patchTask = async (id, fields) => {
+    const res = await axios.patch(`${API}/tasks/${id}`, fields);
     refresh(res.data);
     if (detail?.id === id) setDetail(res.data);
   };
 
-  const deleteCard = async (id) => {
-    await axios.delete(`${API}/projects/cards/${id}`);
-    setCards(prev => prev.filter(c => c.id !== id));
+  const deleteTask = async (id) => {
+    await axios.delete(`${API}/tasks/${id}`);
+    setTasks(prev => prev.filter(t => t.id !== id));
     if (detail?.id === id) setDetail(null);
   };
 
   // ── Subtasks ───────────────────────────────────────────────────────────────
 
-  const addSub = async (cardId, title) => {
+  const addSub = async (taskId, title) => {
     if (!title.trim()) return;
-    const res = await axios.post(`${API}/projects/cards/${cardId}/subtasks`, { title });
-    const updated = { ...cards.find(c => c.id === cardId), subtasks: [...cards.find(c => c.id === cardId).subtasks, res.data] };
+    const res = await axios.post(`${API}/tasks/${taskId}/subtasks`, { title });
+    const updated = { ...tasks.find(t => t.id === taskId), subtasks: [...tasks.find(t => t.id === taskId).subtasks, res.data] };
     refresh(updated);
-    if (detail?.id === cardId) setDetail(updated);
+    if (detail?.id === taskId) setDetail(updated);
   };
 
-  const toggleSub = async (cardId, sub) => {
-    const res = await axios.patch(`${API}/projects/subtasks/${sub.id}`, { completed: !sub.completed });
-    const card = cards.find(c => c.id === cardId);
-    const updated = { ...card, subtasks: card.subtasks.map(s => s.id === sub.id ? res.data : s) };
+  const toggleSub = async (taskId, sub) => {
+    const res = await axios.patch(`${API}/tasks/subtasks/${sub.id}`, { completed: !sub.completed });
+    const task = tasks.find(t => t.id === taskId);
+    const updated = { ...task, subtasks: task.subtasks.map(s => s.id === sub.id ? res.data : s) };
     refresh(updated);
-    if (detail?.id === cardId) setDetail(updated);
+    if (detail?.id === taskId) setDetail(updated);
   };
 
-  const deleteSub = async (cardId, subId) => {
-    await axios.delete(`${API}/projects/subtasks/${subId}`);
-    const card = cards.find(c => c.id === cardId);
-    const updated = { ...card, subtasks: card.subtasks.filter(s => s.id !== subId) };
+  const deleteSub = async (taskId, subId) => {
+    await axios.delete(`${API}/tasks/subtasks/${subId}`);
+    const task = tasks.find(t => t.id === taskId);
+    const updated = { ...task, subtasks: task.subtasks.filter(s => s.id !== subId) };
     refresh(updated);
-    if (detail?.id === cardId) setDetail(updated);
+    if (detail?.id === taskId) setDetail(updated);
   };
 
   return (
@@ -93,20 +112,20 @@ export default function ProjectsView({ onBack }) {
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <div>
-            <h1 className="board-title">Projects</h1>
+            <h1 className="board-title">Tasks</h1>
             <p className="board-sub">Manage your streams, tasks, and sub-routines</p>
           </div>
         </div>
         <button className="board-new-btn" onClick={() => setAddingIn('backlog')}>
           <span className="material-symbols-outlined">add</span>
-          New Card
+          New Task
         </button>
       </div>
 
       {/* Columns */}
       <div className="board-columns">
         {COLUMNS.map(col => {
-          const colCards = cards.filter(c => c.status === col.id);
+          const colTasks = tasks.filter(t => t.status === col.id);
           return (
             <div key={col.id} className="board-col">
               <div className="board-col-header">
@@ -114,28 +133,28 @@ export default function ProjectsView({ onBack }) {
                   <span className="board-col-dot" style={{ background: col.dot }} />
                   <span className="board-col-name">{col.label}</span>
                 </div>
-                <span className="board-col-count">{colCards.length}</span>
+                <span className="board-col-count">{colTasks.length}</span>
               </div>
 
               <div className="board-col-cards">
-                {colCards.map(card => (
+                {colTasks.map(task => (
                   <BoardCard
-                    key={card.id}
-                    card={card}
-                    onClick={() => setDetail(card)}
-                    onAddSub={(title) => addSub(card.id, title)}
+                    key={task.id}
+                    card={task}
+                    onClick={() => setDetail(task)}
+                    onAddSub={(title) => addSub(task.id, title)}
                   />
                 ))}
 
                 {addingIn === col.id ? (
                   <InlineAdd
-                    onConfirm={(t) => createCard(t, col.id)}
+                    onConfirm={(t) => createTask(t, col.id)}
                     onCancel={() => setAddingIn(null)}
                   />
                 ) : (
                   <button className="board-add-card-btn" onClick={() => setAddingIn(col.id)}>
                     <span className="material-symbols-outlined">add</span>
-                    Add card
+                    Add task
                   </button>
                 )}
               </div>
@@ -149,8 +168,8 @@ export default function ProjectsView({ onBack }) {
         <DetailModal
           card={detail}
           onClose={() => setDetail(null)}
-          onPatch={(fields) => patchCard(detail.id, fields)}
-          onDelete={() => deleteCard(detail.id)}
+          onPatch={(fields) => patchTask(detail.id, fields)}
+          onDelete={() => deleteTask(detail.id)}
           onAddSub={(title) => addSub(detail.id, title)}
           onToggleSub={(sub) => toggleSub(detail.id, sub)}
           onDeleteSub={(subId) => deleteSub(detail.id, subId)}
@@ -192,6 +211,14 @@ function BoardCard({ card, onClick, onAddSub }) {
 
       {/* Notes preview */}
       {card.notes && <p className="bcard-desc">{card.notes}</p>}
+
+      {/* Due date */}
+      {card.due_date && (
+        <span className={`bcard-due ${isOverdue(card.due_date) && !card.completed ? 'bcard-due--overdue' : ''}`}>
+          <span className="material-symbols-outlined">event</span>
+          {formatDueDate(card.due_date)}
+        </span>
+      )}
 
       {/* Progress */}
       {subTotal > 0 && (
@@ -236,7 +263,7 @@ function BoardCard({ card, onClick, onAddSub }) {
   );
 }
 
-// ── Inline add card ────────────────────────────────────────────────────────────
+// ── Inline add task ────────────────────────────────────────────────────────────
 
 function InlineAdd({ onConfirm, onCancel }) {
   const [val, setVal] = useState('');
@@ -248,7 +275,7 @@ function InlineAdd({ onConfirm, onCancel }) {
       <textarea
         ref={ref}
         className="board-inline-input"
-        placeholder="Card title…"
+        placeholder="Task title…"
         value={val}
         rows={2}
         onChange={e => setVal(e.target.value)}
@@ -258,7 +285,7 @@ function InlineAdd({ onConfirm, onCancel }) {
         }}
       />
       <div className="board-inline-actions">
-        <button className="board-inline-confirm" onClick={() => onConfirm(val)}>Add Card</button>
+        <button className="board-inline-confirm" onClick={() => onConfirm(val)}>Add Task</button>
         <button className="board-inline-cancel" onClick={onCancel}>
           <span className="material-symbols-outlined">close</span>
         </button>
@@ -270,21 +297,26 @@ function InlineAdd({ onConfirm, onCancel }) {
 // ── Detail Modal ───────────────────────────────────────────────────────────────
 
 function DetailModal({ card, onClose, onPatch, onDelete, onAddSub, onToggleSub, onDeleteSub }) {
-  const [title, setTitle]   = useState(card.title);
-  const [notes, setNotes]   = useState(card.notes);
-  const [newSub, setNewSub] = useState('');
+  const [title,   setTitle]   = useState(card.title);
+  const [notes,   setNotes]   = useState(card.notes);
+  const [dueDate, setDueDate] = useState(card.due_date || '');
+  const [newSub,  setNewSub]  = useState('');
   const pri = getPriority(card.priority);
 
   const saveTitle = () => { if (title.trim() && title !== card.title) onPatch({ title: title.trim() }); };
   const saveNotes = () => { if (notes !== card.notes) onPatch({ notes }); };
+  const saveDue   = (val) => { onPatch({ due_date: val }); };
 
   const submitSub = () => {
     onAddSub(newSub);
     setNewSub('');
   };
 
-  // sync if card prop updates (after patch)
-  useEffect(() => { setTitle(card.title); setNotes(card.notes); }, [card.title, card.notes]);
+  useEffect(() => {
+    setTitle(card.title);
+    setNotes(card.notes);
+    setDueDate(card.due_date || '');
+  }, [card.title, card.notes, card.due_date]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -330,6 +362,24 @@ function DetailModal({ card, onClose, onPatch, onDelete, onAddSub, onToggleSub, 
               >
                 {PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
+            </div>
+
+            {/* Due date */}
+            <div className="modal-field">
+              <label className="modal-label">Due Date</label>
+              <div className="modal-due-wrap">
+                <input
+                  type="date"
+                  className="modal-select modal-date-input"
+                  value={dueDate}
+                  onChange={e => { setDueDate(e.target.value); saveDue(e.target.value); }}
+                />
+                {dueDate && (
+                  <button className="modal-clear-date" onClick={() => { setDueDate(''); saveDue(''); }} title="Clear date">
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -388,7 +438,7 @@ function DetailModal({ card, onClose, onPatch, onDelete, onAddSub, onToggleSub, 
         <div className="modal-footer">
           <button className="modal-delete-btn" onClick={onDelete}>
             <span className="material-symbols-outlined">delete</span>
-            Delete Card
+            Delete Task
           </button>
         </div>
       </div>

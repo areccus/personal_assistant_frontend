@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 20px 32px;
+  padding: max(20px, calc(var(--sat) + 12px)) 32px 20px;
   border-bottom: 1px solid rgba(68, 70, 86, 0.2);
   background: #131313;
   flex-shrink: 0;
@@ -1038,7 +1038,7 @@
 @media (max-width: 900px) {
   .fin-bento { grid-template-columns: 1fr; }
   .fin-tab-content { padding: 20px 16px 48px; }
-  .fin-header { padding: 16px 20px; }
+  .fin-header { padding: max(16px, calc(var(--sat) + 8px)) 20px 16px; }
   .fin-tabs { padding: 0 20px; }
   .fin-stat-card { min-width: auto; }
   .fin-title { font-size: 22px; }
@@ -1254,4 +1254,242 @@ body.tahoe .fin-error-card {
   background: rgba(179,27,37,0.08);
   border-color: rgba(179,27,37,0.20);
   color: #b31b25;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Budget Status tab
+────────────────────────────────────────────────────────────── */
+
+.fin-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px 24px 0;
+}
+@media (max-width: 600px) {
+  .fin-status-grid { grid-template-columns: 1fr; padding: 12px 16px 0; }
+}
+
+.fin-status-num-card {
+  padding: 16px 20px;
+}
+
+.fin-status-health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.fin-status-health-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.fin-status-health-badge.green  { background: rgba(34,197,94,0.15);  color: #22C55E; }
+.fin-status-health-badge.yellow { background: rgba(234,179,8,0.15);  color: #EAB308; }
+.fin-status-health-badge.red    { background: rgba(239,68,68,0.15);  color: #EF4444; }
+
+.fin-status-health-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8e8fa2;
+  margin-top: 6px;
+}
+
+.fin-status-red-warn {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #EF4444;
+  line-height: 1.5;
+}
+
+/* Upcoming bills list */
+.fin-bill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fin-bill-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fin-bill-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fin-bill-icon {
+  font-size: 18px;
+  color: #bbc3ff;
+  flex-shrink: 0;
+}
+
+.fin-bill-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e5e2e1;
+}
+
+.fin-bill-due {
+  font-size: 11px;
+  color: #8e8fa2;
+  margin-top: 2px;
+}
+
+.fin-bill-amt {
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e5e2e1;
+  flex-shrink: 0;
+}
+.fin-bill-amt.urgent { color: #EF4444; }
+
+/* Category bar chart */
+.fin-cat-bar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fin-cat-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fin-cat-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fin-cat-bar-name {
+  font-size: 12px;
+  color: #8e8fa2;
+}
+
+.fin-cat-bar-amt {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e2e1;
+}
+
+/* Sync timestamp footer */
+.fin-status-sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 24px 16px;
+  font-size: 11px;
+  color: #555769;
+}
+@media (max-width: 600px) { .fin-status-sync { padding: 0 16px 16px; } }
+
+/* ── All Bills editable section ──────────────────────────────────────────── */
+.fin-all-bills-card { padding-bottom: 8px; }
+
+.fin-bills-group { margin-bottom: 16px; }
+.fin-bills-group:last-child { margin-bottom: 0; }
+
+.fin-bills-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #555769;
+  padding: 0 0 8px 0;
+  border-bottom: 1px solid #1e1e2e;
+  margin-bottom: 4px;
+}
+
+/* amount + edit trigger side */
+.fin-bill-amt-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fin-bill-edit-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: #555769;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.fin-bill-edit-trigger:hover { color: #bbc3ff; background: #1e1e2e; }
+.fin-bill-edit-trigger .material-symbols-outlined { font-size: 15px; }
+
+/* inline edit input */
+.fin-bill-edit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fin-bill-edit-prefix {
+  color: #8e8fa2;
+  font-size: 13px;
+}
+
+.fin-bill-edit-day { width: 54px !important; }
+
+.fin-bill-edit-input {
+  width: 80px;
+  background: #1e1e2e;
+  border: 1px solid #3d5afe;
+  border-radius: 6px;
+  color: #e5e2e1;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 7px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.fin-bill-edit-input::-webkit-outer-spin-button,
+.fin-bill-edit-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.fin-bill-edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.fin-bill-edit-btn .material-symbols-outlined { font-size: 16px; }
+.fin-bill-edit-btn.confirm { color: #22C55E; }
+.fin-bill-edit-btn.confirm:hover { background: rgba(34,197,94,0.12); }
+.fin-bill-edit-btn.cancel  { color: #EF4444; }
+.fin-bill-edit-btn.cancel:hover  { background: rgba(239,68,68,0.12); }
+
+.fin-bill-saving {
+  font-size: 11px;
+  color: #555769;
+  font-style: italic;
 }

@@ -144,14 +144,25 @@ export function useChat() {
     try { await axios.post(`${api.url}/sessions/reset`, { client_id: CLIENT_ID }); } catch (err) {}
     setMessages([]);
     setCurrentChat(null);
+    setView('chat');
+    window.history.pushState({ view: 'chat' }, '', '/chats');
     setSidebarOpen(false);
   };
 
   const switchChat = async (name) => {
-    if (name === currentChat) { setSidebarOpen(false); return; }
+    if (name === currentChat) {
+      setSidebarOpen(false);
+      if (view !== 'chat') {
+        setView('chat');
+        window.history.pushState({ view: 'chat' }, '', '/chats');
+      }
+      return;
+    }
     try {
       const res = await axios.post(`${api.url}/sessions/load`, { name, client_id: CLIENT_ID });
       setCurrentChat(name);
+      setView('chat');
+      window.history.pushState({ view: 'chat' }, '', '/chats');
       const history = res.data.history || [];
       setMessages(history.map(h => ({
         role: h.role === 'user' ? 'user' : 'assistant',

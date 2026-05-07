@@ -786,16 +786,292 @@ function GoalsTab({ goals, summary, loading, onGoalSaved }) {
   );
 }
 
+// ── Budget Status tab ─────────────────────────────────────────────────────────
+
+const SHEET_LABELS = {
+  nf_checking: 'NF Checking',
+  nf_credit:   'NF Credit',
+  self:        'Self',
+};
+
+function BillRow({ bill, saving, onSave }) {
+  const [editing,    setEditing]    = useState(false);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDay,    setEditDay]    = useState('');
+
+  const startEdit = () => {
+    setEditAmount(String(bill.amount));
+    setEditDay(bill.due_day != null ? String(bill.due_day) : '');
+    setEditing(true);
+  };
+  const cancel = () => setEditing(false);
+  const commit = async () => {
+    const amt = parseFloat(editAmount);
+    if (isNaN(amt) || amt < 0) return;
+    setEditing(false);
+    await onSave(bill.name, amt, editDay);
+  };
+  const onKey = (e) => {
+    if (e.key === 'Enter')  commit();
+    if (e.key === 'Escape') cancel();
+  };
+
+  const isSaving = saving === bill.name;
+
+  return (
+    <li className="fin-bill-item">
+      <div className="fin-bill-left">
+        <span className="material-symbols-outlined fin-bill-icon">receipt_long</span>
+        <div>
+          <div className="fin-bill-name">{bill.name}</div>
+          {bill.due_day != null && !editing &&
+            <div className="fin-bill-due">Day {bill.due_day}</div>}
+        </div>
+      </div>
+      {editing ? (
+        <div className="fin-bill-edit-wrap">
+          <span className="fin-bill-edit-prefix">$</span>
+          <input
+            className="fin-bill-edit-input"
+            type="number" min="0" step="0.01"
+            value={editAmount}
+            onChange={(e) => setEditAmount(e.target.value)}
+            onKeyDown={onKey}
+            autoFocus
+          />
+          <input
+            className="fin-bill-edit-input fin-bill-edit-day"
+            type="number" min="1" max="31" placeholder="Day"
+            value={editDay}
+            onChange={(e) => setEditDay(e.target.value)}
+            onKeyDown={onKey}
+          />
+          <button className="fin-bill-edit-btn confirm" onClick={commit} title="Save">
+            <span className="material-symbols-outlined">check</span>
+          </button>
+          <button className="fin-bill-edit-btn cancel" onClick={cancel} title="Cancel">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      ) : (
+        <div className="fin-bill-amt-wrap">
+          {isSaving
+            ? <span className="fin-bill-saving">saving…</span>
+            : <span className="fin-bill-amt">{fmt(bill.amount)}</span>
+          }
+          <button className="fin-bill-edit-trigger" onClick={startEdit} title="Edit">
+            <span className="material-symbols-outlined">edit</span>
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function BudgetStatusTab({ status, loading, allBills, savingBill, onSaveBill }) {
+  if (loading) return <div className="fin-tab-content"><Skeleton height={400} /></div>;
+  if (!status)  return <div className="fin-tab-content"><div className="fin-empty">No status data yet.</div></div>;
+
+  const isRed    = status.is_in_red;
+  const maxCat   = status.top_categories?.length
+    ? Math.max(...status.top_categories.map((c) => c.total), 1)
+    : 1;
+  const syncedAt = status.bills_last_synced
+    ? new Date(status.bills_last_synced).toLocaleString()
+    : 'Never';
+
+  return (
+    <div className="fin-tab-content">
+
+      {/* Top-line numbers */}
+      <div className="fin-status-grid">
+        <div className="fin-card fin-status-num-card">
+          <div className="fin-stat-label">Checking Balance</div>
+          <div className="fin-stat-value">{fmt(status.checking_balance)}</div>
+        </div>
+        <div className="fin-card fin-status-num-card">
+          <div className="fin-stat-label">Bills Due This Week</div>
+          <div className="fin-stat-value primary">{fmt(status.upcoming_week_total)}</div>
+        </div>
+        <div className="fin-card fin-status-num-card">
+          <div className="fin-stat-label">{isRed ? 'Shortfall' : 'Buffer'}</div>
+          <div className={`fin-stat-value ${isRed ? 'expenses' : ''}`}>
+            {fmt(isRed ? status.shortfall : status.buffer)}
+          </div>
+        </div>
+      </div>
+
+      {/* Health indicator */}
+      <div className="fin-card">
+        <div className="fin-status-health-header">
+          <span className="fin-section-label" style={{ marginBottom: 0 }}>Week Coverage</span>
+          <span className={`fin-status-health-badge ${isRed ? 'red' : 'green'}`}>
+            {isRed ? 'In the Red' : 'Covered'}
+          </span>
+        </div>
+        {isRed ? (
+          <div className="fin-status-red-warn">
+            Checking is {fmt(status.shortfall)} short of covering this week's bills. Move money now.
+          </div>
+        ) : (
+          <div className="fin-status-health-meta">
+            <span>Balance covers all bills due this week with ${fmt(status.buffer)} to spare</span>
+          </div>
+        )}
+      </div>
+
+      <div className="fin-bento">
+
+        {/* Upcoming bills */}
+        <div className="fin-card">
+          <div className="fin-section-label">Bills Due This Week</div>
+          {!status.upcoming_week_bills?.length ? (
+            <div className="fin-empty">No bills due in the next 7 days</div>
+          ) : (
+            <ul className="fin-bill-list">
+              {status.upcoming_week_bills.map((b, i) => (
+                <li key={i} className="fin-bill-item">
+                  <div className="fin-bill-left">
+                    <span className="material-symbols-outlined fin-bill-icon">receipt_long</span>
+                    <div>
+                      <div className="fin-bill-name">{b.name}</div>
+                      <div className="fin-bill-due">
+                        Due {b.days_until_due === 0 ? 'today' : `in ${b.days_until_due}d`}
+                        {' · '}Day {b.due_day}
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`fin-bill-amt ${b.days_until_due <= 2 ? 'urgent' : ''}`}>
+                    {fmt(b.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Top categories */}
+        <div className="fin-card">
+          <div className="fin-section-label">Top Spending This Month</div>
+          {!status.top_categories?.length ? (
+            <div className="fin-empty">No spending data yet</div>
+          ) : (
+            <ul className="fin-cat-bar-list">
+              {status.top_categories.map((c, i) => (
+                <li key={i} className="fin-cat-bar-row">
+                  <div className="fin-cat-bar-meta">
+                    <span className="fin-cat-bar-name">{catLabel(c.category)}</span>
+                    <span className="fin-cat-bar-amt">{fmt(c.total)}</span>
+                  </div>
+                  <div className="fin-cashflow-track">
+                    <div
+                      className="fin-cashflow-fill"
+                      style={{
+                        width: Math.round((c.total / maxCat) * 100) + '%',
+                        background: catColor(c.category),
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+      </div>
+
+      {/* All bills — editable */}
+      <div className="fin-card fin-all-bills-card">
+        <div className="fin-section-label">All Bills</div>
+        {!allBills ? (
+          <div className="fin-empty">Loading…</div>
+        ) : (
+          Object.entries(SHEET_LABELS).map(([key, label]) => {
+            const bills = allBills[key] || [];
+            if (!bills.length) return null;
+            return (
+              <div key={key} className="fin-bills-group">
+                <div className="fin-bills-group-label">{label}</div>
+                <ul className="fin-bill-list">
+                  {bills.map((b, i) => (
+                    <BillRow
+                      key={i}
+                      bill={b}
+                      saving={savingBill}
+                      onSave={onSaveBill}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Sync timestamp */}
+      <div className="fin-status-sync">
+        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>cloud_sync</span>
+        Bills last synced from OneDrive: {syncedAt}
+      </div>
+
+    </div>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 
 function FinanceDashboard({ onBack, theme = 'dark' }) {
-  const [tab,          setTab]          = useState('spent');
-  const [transactions, setTransactions] = useState([]);
-  const [summary,      setSummary]      = useState(null);
-  const [goals,        setGoals]        = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState(null);
-  const [showAllTxns,  setShowAllTxns]  = useState(false);
+  const [tab,           setTab]          = useState('spent');
+  const [transactions,  setTransactions] = useState([]);
+  const [summary,       setSummary]      = useState(null);
+  const [goals,         setGoals]        = useState([]);
+  const [loading,       setLoading]      = useState(true);
+  const [error,         setError]        = useState(null);
+  const [showAllTxns,   setShowAllTxns]  = useState(false);
+  const [budgetStatus,  setBudgetStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [allBills,      setAllBills]      = useState(null);
+  const [savingBill,    setSavingBill]    = useState(null);
+
+  const fetchBudgetStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/budget/status`);
+      const data = await res.json();
+      if (!data.error) setBudgetStatus(data);
+    } catch {
+      // non-fatal — status card just stays empty
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
+  const fetchAllBills = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/budget/bills`);
+      const data = await res.json();
+      if (!data.error) setAllBills(data);
+    } catch {}
+  }, []);
+
+  const saveBill = useCallback(async (name, amount, due_day) => {
+    setSavingBill(name);
+    try {
+      const body = { name };
+      if (amount  !== undefined) body.amount  = parseFloat(amount);
+      if (due_day !== undefined) body.due_day = due_day === '' ? null : parseInt(due_day, 10);
+      const res = await fetch(`${API_URL}/api/budget/bills`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      await fetchAllBills();
+      await fetchBudgetStatus();
+    } finally {
+      setSavingBill(null);
+    }
+  }, [fetchAllBills, fetchBudgetStatus]);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -817,13 +1093,19 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
 
   useEffect(() => {
     fetchData();
-    const iv = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(iv);
-  }, [fetchData]);
+    fetchBudgetStatus();
+    fetchAllBills();
+    const iv       = setInterval(fetchData,         5 * 60 * 1000);
+    const statusIv = setInterval(fetchBudgetStatus, 60 * 1000);
+    return () => { clearInterval(iv); clearInterval(statusIv); };
+  }, [fetchData, fetchBudgetStatus, fetchAllBills]);
 
   const handleRefresh = () => {
     setLoading(true);
+    setStatusLoading(true);
     fetchData();
+    fetchBudgetStatus();
+    fetchAllBills();
   };
 
   // All-transactions full-screen slide-in
@@ -883,6 +1165,12 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
           Spent
         </button>
         <button
+          className={`fin-tab ${tab === 'status' ? 'active' : ''}`}
+          onClick={() => setTab('status')}
+        >
+          Status
+        </button>
+        <button
           className={`fin-tab ${tab === 'goals' ? 'active' : ''}`}
           onClick={() => setTab('goals')}
         >
@@ -906,6 +1194,14 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
             summary={summary}
             loading={loading}
             onViewAll={() => setShowAllTxns(true)}
+          />
+        ) : tab === 'status' ? (
+          <BudgetStatusTab
+            status={budgetStatus}
+            loading={statusLoading}
+            allBills={allBills}
+            savingBill={savingBill}
+            onSaveBill={saveBill}
           />
         ) : (
           <GoalsTab

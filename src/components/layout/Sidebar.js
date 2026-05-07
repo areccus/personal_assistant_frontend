@@ -3,9 +3,7 @@ import ChatItem from '../chat/ChatItem';
 
 export function formatChatName(name) {
   if (!name) return 'Chat';
-  // Strip trailing _xxxxxx hex uniqueness suffix (e.g. "Bet Scout_a3f9c1" → "Bet Scout")
   const stripped = name.replace(/_[0-9a-f]{6}$/, '');
-  // Legacy: time-based fallback names like auto_0412_213808 or hc_0412_2138
   const timeMatch = stripped.match(/^([a-z]+)_(\d{2})(\d{2})_(\d{2})(\d{2})(?:\d{2})?$/);
   if (timeMatch) {
     const [, prefix, month, day, hour, min] = timeMatch;
@@ -18,7 +16,6 @@ export function formatChatName(name) {
     const label = labels[prefix] ?? '';
     return `${label}${monthName} ${parseInt(day, 10)}, ${h12}:${min} ${ampm}`;
   }
-  // Descriptive synonym-pool name or user-renamed — show as-is (already readable)
   return stripped;
 }
 
@@ -35,8 +32,6 @@ export function formatDate(dateStr) {
 function Sidebar({
   sidebarOpen,
   setSidebarOpen,
-  theme,
-  toggleTheme,
   startNewChat,
   setSearchOpen,
   chats,
@@ -53,6 +48,8 @@ function Sidebar({
   navigateTo,
   financeError,
   currentAgent,
+  onCollapse,
+  onOpenSettings,
 }) {
   return (
     <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
@@ -60,12 +57,19 @@ function Sidebar({
       {/* Top fixed section */}
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          <div>
-            <div className="brand-name">Chats</div>
-            <div className="brand-sub">AI Assistant</div>
+          <div className="brand-mark">
+            <div className="brand-orb" />
+            <div>
+              <div className="brand-name">Intelligence</div>
+              <div className="brand-sub">AI Assistant</div>
+            </div>
           </div>
-          <button className="theme-toggle" onClick={toggleTheme} title={theme === 'tahoe' ? 'Switch to Dark' : 'Switch to Tahoe'}>
-            <div className="theme-toggle-orb" />
+          <button
+            className="sidebar-collapse-btn"
+            onClick={onCollapse}
+            title="Collapse sidebar"
+          >
+            <span className="material-symbols-outlined">menu_open</span>
           </button>
         </div>
 
@@ -82,7 +86,7 @@ function Sidebar({
         <div className="chat-list-label">Recent Chats</div>
       </div>
 
-      {/* Scrollable chat list — fills all remaining space */}
+      {/* Scrollable chat list */}
       <nav className="chat-list">
         {chats.length === 0 && (
           <div className="chat-empty">No saved chats yet</div>
@@ -106,7 +110,7 @@ function Sidebar({
         ))}
       </nav>
 
-      {/* Bottom nav — pinned above user card */}
+      {/* Bottom nav — Apps */}
       <div className="sidebar-nav-footer">
         <div className="sidebar-nav-label">Apps</div>
 
@@ -126,11 +130,11 @@ function Sidebar({
         </button>
 
         <button
-          className={`sidebar-finance-btn ${view === 'projects' ? 'active' : ''}`}
-          onClick={() => { navigateTo('projects'); setSidebarOpen(false); }}
+          className={`sidebar-finance-btn ${view === 'tasks' ? 'active' : ''}`}
+          onClick={() => { navigateTo('tasks'); setSidebarOpen(false); }}
         >
           <span className="material-symbols-outlined">view_kanban</span>
-          Projects
+          Tasks
         </button>
 
         <button
@@ -140,16 +144,26 @@ function Sidebar({
           <span className="material-symbols-outlined">sports_basketball</span>
           HoopCipher
         </button>
+
+        <button
+          className={`sidebar-finance-btn ${view === 'news' ? 'active' : ''}`}
+          onClick={() => { navigateTo('news'); setSidebarOpen(false); }}
+        >
+          <span className="material-symbols-outlined">newspaper</span>
+          Daily Briefing
+        </button>
       </div>
 
-      {/* User section at bottom */}
-      <div className="sidebar-user">
+      {/* User card — click to open settings */}
+      <div className="sidebar-user" onClick={onOpenSettings} role="button" tabIndex={0}>
         <div className="user-avatar">A</div>
-        <div>
+        <div className="user-info">
           <div className="user-name">Areccus</div>
           <div className="user-model">{currentAgent.model}</div>
         </div>
+        <span className="material-symbols-outlined user-settings-icon">settings</span>
       </div>
+
     </aside>
   );
 }
