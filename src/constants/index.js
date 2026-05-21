@@ -1,6 +1,3 @@
-// ── API URL with live-binding mutable ref ────────────────────────────────────
-// Using an object so all importers share the same reference and mutations
-// (fallback on connection failure) are visible everywhere.
 export const api = {
   url: process.env.REACT_APP_API_URL || 'http://localhost:8081',
 };
@@ -34,6 +31,13 @@ export const AGENTS = {
     model: 'claude-haiku (cloud)',
     description: 'Powerful cloud AI for complex coding, analysis, and deep questions',
     placeholder: 'Ask Friday anything...',
+  },
+  tutor: {
+    name: 'Tutor',
+    emoji: '🎓',
+    model: 'claude-haiku · study mode',
+    description: 'Exam-focused study mode with structured explanations and quizzes',
+    placeholder: 'Ask Teach anything...',
   },
 };
 

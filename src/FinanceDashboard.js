@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -868,17 +868,78 @@ function BillRow({ bill, saving, onSave }) {
   );
 }
 
-function BudgetStatusTab({ status, loading, allBills, savingBill, onSaveBill }) {
+function BillList({ bills, urgentThreshold = 2, allBills, onTogglePaid }) {
+  if (!bills?.length) return <div className="fin-empty">None</div>;
+
+  const allFlat = allBills
+    ? [...(allBills.nf_checking || []), ...(allBills.nf_credit || []), ...(allBills.self || [])]
+    : [];
+
+  return (
+    <ul className="fin-bill-list">
+      {bills.map((b, i) => {
+        const stored = allFlat.find(x => x.name === b.name);
+        const isPaid = stored?.paid ?? false;
+        return (
+          <li key={i} className={`fin-bill-item${isPaid ? ' fin-bill-item--paid' : ''}`}>
+            <div className="fin-bill-left">
+              <span className="material-symbols-outlined fin-bill-icon">receipt_long</span>
+              <div>
+                <div className="fin-bill-name">{b.name}</div>
+                <div className="fin-bill-due">
+                  Due {b.days_until_due === 0 ? 'today' : `in ${b.days_until_due}d`}
+                  {b.due_day ? ` · Day ${b.due_day}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="fin-bill-amt-wrap">
+              <span className={`fin-bill-amt ${b.days_until_due <= urgentThreshold ? 'urgent' : ''}`}>
+                {fmt(b.amount)}
+              </span>
+              {onTogglePaid && (
+                <button
+                  className={`fin-bill-paid-btn${isPaid ? ' fin-bill-paid-btn--paid' : ''}`}
+                  onClick={() => onTogglePaid(b.name, !isPaid)}
+                  title={isPaid ? 'Mark unpaid' : 'Mark paid'}
+                >
+                  <span className="material-symbols-outlined">
+                    {isPaid ? 'check_circle' : 'radio_button_unchecked'}
+                  </span>
+                  {isPaid ? 'Paid' : 'Unpaid'}
+                </button>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function BudgetStatusTab({ status, loading, allBills, savingBill, onSaveBill, onTogglePaid }) {
   if (loading) return <div className="fin-tab-content"><Skeleton height={400} /></div>;
   if (!status)  return <div className="fin-tab-content"><div className="fin-empty">No status data yet.</div></div>;
 
-  const isRed    = status.is_in_red;
-  const maxCat   = status.top_categories?.length
+  const preBills      = status.pre_payday_bills  || [];
+  const postBills     = status.post_payday_bills || [];
+  const preTotal      = status.pre_payday_total  || 0;
+  const postTotal     = status.post_payday_total || 0;
+  const balance       = status.checking_balance  || 0;
+  const balAfterPre   = status.balance_after_pre ?? (balance - preTotal);
+  const paycheckNeeded = status.paycheck_needed  || 0;
+  const daysToPayday  = status.days_to_payday;
+  const paydayIsToday = status.payday_is_today;
+
+  const thisWeekBuffer = balance - preTotal;
+  const thisWeekRed    = thisWeekBuffer < 0;
+
+  const maxCat = status.top_categories?.length
     ? Math.max(...status.top_categories.map((c) => c.total), 1)
     : 1;
-  const syncedAt = status.bills_last_synced
-    ? new Date(status.bills_last_synced).toLocaleString()
-    : 'Never';
+
+  const paydayLabel = paydayIsToday
+    ? 'Payday is Today'
+    : `After Payday (in ${daysToPayday}d)`;
 
   return (
     <div className="fin-tab-content">
@@ -887,68 +948,74 @@ function BudgetStatusTab({ status, loading, allBills, savingBill, onSaveBill }) 
       <div className="fin-status-grid">
         <div className="fin-card fin-status-num-card">
           <div className="fin-stat-label">Checking Balance</div>
-          <div className="fin-stat-value">{fmt(status.checking_balance)}</div>
+          <div className="fin-stat-value">{fmt(balance)}</div>
         </div>
         <div className="fin-card fin-status-num-card">
-          <div className="fin-stat-label">Bills Due This Week</div>
-          <div className="fin-stat-value primary">{fmt(status.upcoming_week_total)}</div>
+          <div className="fin-stat-label">This Week Bills</div>
+          <div className="fin-stat-value primary">{preBills.length ? fmt(preTotal) : '—'}</div>
         </div>
         <div className="fin-card fin-status-num-card">
-          <div className="fin-stat-label">{isRed ? 'Shortfall' : 'Buffer'}</div>
-          <div className={`fin-stat-value ${isRed ? 'expenses' : ''}`}>
-            {fmt(isRed ? status.shortfall : status.buffer)}
-          </div>
+          <div className="fin-stat-label">After Payday Bills</div>
+          <div className="fin-stat-value primary">{postBills.length ? fmt(postTotal) : '—'}</div>
         </div>
       </div>
 
-      {/* Health indicator */}
-      <div className="fin-card">
-        <div className="fin-status-health-header">
-          <span className="fin-section-label" style={{ marginBottom: 0 }}>Week Coverage</span>
-          <span className={`fin-status-health-badge ${isRed ? 'red' : 'green'}`}>
-            {isRed ? 'In the Red' : 'Covered'}
-          </span>
+      {/* Split coverage cards */}
+      <div className="fin-coverage-split">
+
+        {/* This Week */}
+        <div className={`fin-card fin-coverage-card ${thisWeekRed ? 'red' : 'green'}`}>
+          <div className="fin-coverage-header">
+            <span className="fin-section-label" style={{ marginBottom: 0 }}>This Week</span>
+            <span className={`fin-status-health-badge ${thisWeekRed ? 'red' : 'green'}`}>
+              {thisWeekRed ? 'Short' : 'Covered'}
+            </span>
+          </div>
+          {!preBills.length ? (
+            <div className="fin-coverage-meta">No bills due before Friday</div>
+          ) : thisWeekRed ? (
+            <div className="fin-status-red-warn">
+              Short by {fmt(Math.abs(thisWeekBuffer))} — move money before Friday
+            </div>
+          ) : (
+            <div className="fin-coverage-meta">
+              {fmt(thisWeekBuffer)} to spare after {fmt(preTotal)} in bills
+            </div>
+          )}
+          <BillList bills={preBills} urgentThreshold={2} allBills={allBills} onTogglePaid={onTogglePaid} />
         </div>
-        {isRed ? (
-          <div className="fin-status-red-warn">
-            Checking is {fmt(status.shortfall)} short of covering this week's bills. Move money now.
+
+        {/* After Payday */}
+        <div className={`fin-card fin-coverage-card ${paycheckNeeded > 0 ? 'warn' : 'green'}`}>
+          <div className="fin-coverage-header">
+            <span className="fin-section-label" style={{ marginBottom: 0 }}>{paydayLabel}</span>
+            <span className={`fin-status-health-badge ${paycheckNeeded > 0 ? 'warn' : 'green'}`}>
+              {paycheckNeeded > 0 ? 'Check Needed' : 'Covered'}
+            </span>
           </div>
-        ) : (
-          <div className="fin-status-health-meta">
-            <span>Balance covers all bills due this week with ${fmt(status.buffer)} to spare</span>
-          </div>
-        )}
+          {!postBills.length ? (
+            <div className="fin-coverage-meta">No bills after payday</div>
+          ) : paycheckNeeded > 0 ? (
+            <div className="fin-coverage-paycheck-warn">
+              <div className="fin-paycheck-needed-row">
+                <span className="fin-paycheck-needed-label">Paycheck must be at least</span>
+                <span className="fin-paycheck-needed-amt">{fmt(paycheckNeeded)}</span>
+              </div>
+              <div className="fin-paycheck-sub">
+                {fmt(balAfterPre)} remaining after this week · {fmt(postTotal)} due
+              </div>
+            </div>
+          ) : (
+            <div className="fin-coverage-meta">
+              Already covered — {fmt(balAfterPre)} left after this week covers {fmt(postTotal)} in bills
+            </div>
+          )}
+          <BillList bills={postBills} urgentThreshold={-1} allBills={allBills} onTogglePaid={onTogglePaid} />
+        </div>
+
       </div>
 
       <div className="fin-bento">
-
-        {/* Upcoming bills */}
-        <div className="fin-card">
-          <div className="fin-section-label">Bills Due This Week</div>
-          {!status.upcoming_week_bills?.length ? (
-            <div className="fin-empty">No bills due in the next 7 days</div>
-          ) : (
-            <ul className="fin-bill-list">
-              {status.upcoming_week_bills.map((b, i) => (
-                <li key={i} className="fin-bill-item">
-                  <div className="fin-bill-left">
-                    <span className="material-symbols-outlined fin-bill-icon">receipt_long</span>
-                    <div>
-                      <div className="fin-bill-name">{b.name}</div>
-                      <div className="fin-bill-due">
-                        Due {b.days_until_due === 0 ? 'today' : `in ${b.days_until_due}d`}
-                        {' · '}Day {b.due_day}
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`fin-bill-amt ${b.days_until_due <= 2 ? 'urgent' : ''}`}>
-                    {fmt(b.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
 
         {/* Top categories */}
         <div className="fin-card">
@@ -1011,7 +1078,7 @@ function BudgetStatusTab({ status, loading, allBills, savingBill, onSaveBill }) 
       {/* Sync timestamp */}
       <div className="fin-status-sync">
         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>cloud_sync</span>
-        Bills last synced from OneDrive: {syncedAt}
+        Bills last synced from OneDrive: {status.bills_last_synced ? new Date(status.bills_last_synced).toLocaleString() : 'Never'}
       </div>
 
     </div>
@@ -1033,9 +1100,10 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
   const [allBills,      setAllBills]      = useState(null);
   const [savingBill,    setSavingBill]    = useState(null);
 
-  const fetchBudgetStatus = useCallback(async () => {
+  const fetchBudgetStatus = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API_URL}/api/budget/status`);
+      const url = force ? `${API_URL}/api/budget/status?refresh=true` : `${API_URL}/api/budget/status`;
+      const res  = await fetch(url);
       const data = await res.json();
       if (!data.error) setBudgetStatus(data);
     } catch {
@@ -1045,11 +1113,30 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
     }
   }, []);
 
-  const fetchAllBills = useCallback(async () => {
+  const fetchAllBills = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API_URL}/api/budget/bills`);
+      const url = force ? `${API_URL}/api/budget/bills?refresh=true` : `${API_URL}/api/budget/bills`;
+      const res  = await fetch(url);
       const data = await res.json();
       if (!data.error) setAllBills(data);
+    } catch {}
+  }, []);
+
+  const toggleBillPaid = useCallback(async (name, paid) => {
+    try {
+      await fetch(`${API_URL}/api/budget/bills/paid`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, paid }),
+      });
+      setAllBills(prev => {
+        if (!prev) return prev;
+        const updated = {};
+        for (const key of Object.keys(prev)) {
+          updated[key] = prev[key].map(b => b.name === name ? { ...b, paid } : b);
+        }
+        return updated;
+      });
     } catch {}
   }, []);
 
@@ -1085,7 +1172,7 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
       setSummary(sumRes);
       setGoals(goalsRes.goals || []);
     } catch {
-      setError('Failed to load financial data. Is the ZeroClaw backend running?');
+      setError('Failed to load financial data. Is the Seraph backend running?');
     } finally {
       setLoading(false);
     }
@@ -1100,13 +1187,49 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
     return () => { clearInterval(iv); clearInterval(statusIv); };
   }, [fetchData, fetchBudgetStatus, fetchAllBills]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(async (force = false) => {
     setLoading(true);
     setStatusLoading(true);
     fetchData();
-    fetchBudgetStatus();
-    fetchAllBills();
-  };
+    if (force) {
+      // Sequential: status first (re-imports Excel → SQLite), then bills (reads updated SQLite)
+      await fetchBudgetStatus(true);
+      await fetchAllBills(true);
+    } else {
+      fetchBudgetStatus(false);
+      fetchAllBills(false);
+    }
+  }, [fetchData, fetchBudgetStatus, fetchAllBills]);
+
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────
+  const PULL_THRESHOLD  = 72;  // px of drag needed to trigger
+  const pullStartY      = useRef(null);
+  const [pullDist,      setPullDist]      = useState(0);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+
+  const onTouchStart = useCallback((e) => {
+    const el = e.currentTarget;
+    if (el.scrollTop === 0) pullStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const onTouchMove = useCallback((e) => {
+    if (pullStartY.current === null || pullRefreshing) return;
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0) setPullDist(Math.min(delta, PULL_THRESHOLD + 24));
+  }, [pullRefreshing]);
+
+  const onTouchEnd = useCallback(async () => {
+    if (pullDist >= PULL_THRESHOLD && !pullRefreshing) {
+      setPullRefreshing(true);
+      setPullDist(PULL_THRESHOLD);
+      fetchData();                    // transactions — independent, run in background
+      await fetchBudgetStatus(true);  // re-imports Excel → SQLite first
+      await fetchAllBills(true);      // then reads the updated SQLite
+      setPullRefreshing(false);
+    }
+    pullStartY.current = null;
+    setPullDist(0);
+  }, [pullDist, pullRefreshing, fetchData, fetchBudgetStatus, fetchAllBills]);
 
   // All-transactions full-screen slide-in
   if (showAllTxns) {
@@ -1123,8 +1246,32 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
   const totalIncome    = summary?.data?.total_income || 0;
   const spentThisMonth = thisMonthTotal(transactions);
 
+  const pullProgress = Math.min(pullDist / PULL_THRESHOLD, 1);
+
   return (
-    <div className="fin-shell">
+    <div
+      className="fin-shell"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {(pullDist > 0 || pullRefreshing) && (
+        <div
+          className="ptr-indicator"
+          style={{ transform: `translateY(${pullRefreshing ? 48 : Math.round(pullDist * 0.6)}px)` }}
+        >
+          <span
+            className={`material-symbols-outlined ptr-icon ${pullRefreshing ? 'ptr-spinning' : ''}`}
+            style={{ transform: `rotate(${Math.round(pullProgress * 360)}deg)` }}
+          >
+            {pullRefreshing ? 'sync' : pullProgress >= 1 ? 'sync' : 'arrow_downward'}
+          </span>
+          <span className="ptr-label">
+            {pullRefreshing ? 'Syncing OneDrive…' : pullProgress >= 1 ? 'Release to sync' : 'Pull to refresh'}
+          </span>
+        </div>
+      )}
 
       {/* Header */}
       <div className="fin-header">
@@ -1202,6 +1349,7 @@ function FinanceDashboard({ onBack, theme = 'dark' }) {
             allBills={allBills}
             savingBill={savingBill}
             onSaveBill={saveBill}
+            onTogglePaid={toggleBillPaid}
           />
         ) : (
           <GoalsTab

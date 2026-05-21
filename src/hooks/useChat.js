@@ -23,6 +23,8 @@ export function useChat() {
   const [streamState, setStreamState]     = useState(null);
   const [abTarget, setAbTarget]           = useState(null);
   const [financeError, setFinanceError]   = useState(null);
+  const [contextChips, setContextChips]   = useState([]);
+  const [contextContinue, setContextContinue] = useState(null);
 
   const fileInputRef   = useRef(null);
   const messagesEndRef = useRef(null);
@@ -91,7 +93,7 @@ export function useChat() {
 
   useEffect(() => {
     if (PRIMARY_API_URL === FALLBACK_API_URL) { fetchChats(); return; }
-    axios.get(`${PRIMARY_API_URL}/sessions`, { timeout: 1500 })
+    axios.get(`${PRIMARY_API_URL}/sessions`, { timeout: 5000 })
       .catch(() => { api.url = FALLBACK_API_URL; })
       .finally(() => fetchChats());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -258,6 +260,11 @@ export function useChat() {
   // ── Internal: add assistant message + A/B trigger ────────────────────────────
 
   const _addAssistantMsg = (data, userText) => {
+    if (data.tutor_mode && agent !== 'tutor') {
+      setAgent('tutor');
+    }
+    if (data.chips?.length) setContextChips(data.chips);
+    if (data.continue_suggestion) setContextContinue(data.continue_suggestion);
     setMessages(prev => {
       const next = [...prev, {
         role: 'assistant',
@@ -276,6 +283,9 @@ export function useChat() {
         history_results: data.history_results || 0,
         tutor_mode: data.tutor_mode,
         tks: data.tks ?? null,
+        sources: data.sources || [],
+        chips: data.chips || [],
+        continue_suggestion: data.continue_suggestion || null,
         _userText: userText,
       }];
       chatMsgCount.current += 1;
@@ -284,6 +294,22 @@ export function useChat() {
       }
       return next;
     });
+  };
+
+  // ── Regenerate last response ─────────────────────────────────────────────────
+
+  const regenerate = () => {
+    if (isLoading) return;
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUser) return;
+    setMessages(prev => {
+      const idx = [...prev].reverse().findIndex(m => m.role === 'assistant');
+      if (idx === -1) return prev;
+      return prev.slice(0, prev.length - 1 - idx);
+    });
+    setInput(lastUser.content);
+    setContextChips([]);
+    setContextContinue(null);
   };
 
   // ── Send message ─────────────────────────────────────────────────────────────
@@ -298,6 +324,8 @@ export function useChat() {
     setMessages(prev => [...prev, { role: 'user', content: displayText }]);
     setInput('');
     setAttachedFiles([]);
+    setContextChips([]);
+    setContextContinue(null);
     setIsLoading(true);
     setStreamState(null);
 
@@ -325,6 +353,7 @@ export function useChat() {
       client_id: CLIENT_ID,
       session_name: currentChat,
     };
+    if (agent === 'tutor') body.tutor_mode = true;
     if (hasImages) {
       body.attached_images = imageFiles.map(f => ({
         data: f.base64, media_type: f.mimeType,
@@ -375,6 +404,9 @@ export function useChat() {
               _addAssistantMsg(evt, userText);
               if (evt.session_name) setCurrentChat(evt.session_name);
               await fetchChats();
+            } else if (evt.type === 'chips') {
+              if (evt.chips?.length) setContextChips(evt.chips);
+              if (evt.continue_suggestion) setContextContinue(evt.continue_suggestion);
             } else if (evt.type === 'error') {
               setMessages(prev => [...prev, { role: 'error', content: `Router error: ${evt.message}` }]);
             }
@@ -392,9 +424,10 @@ export function useChat() {
         setMessages(prev => prev.slice(0, -1));
         setInput(userText);
       } else {
+        console.error('[useChat] /ask failed:', error, 'api.url:', api.url);
         setMessages(prev => [...prev, {
           role: 'error',
-          content: "Failed to reach ZeroClaw router. Make sure it's running on port 8081.",
+          content: `Failed to reach Seraph router (${api.url}): ${error.message || error}`,
         }]);
       }
     } finally {
@@ -435,6 +468,8 @@ export function useChat() {
     setAbTarget,
     financeError,
     view,
+    contextChips,
+    contextContinue,
     // Refs
     fileInputRef,
     messagesEndRef,
@@ -457,5 +492,6 @@ export function useChat() {
     cancelRequest,
     sendMessage,
     handleKeyDown,
+    regenerate,
   };
 }

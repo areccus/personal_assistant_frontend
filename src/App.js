@@ -4,6 +4,8 @@ import HoopCipherDashboard from './HoopCipherDashboard';
 import TasksView from './TasksView';
 import NewsView from './NewsView';
 import Sidebar from './components/layout/Sidebar';
+import AppRail from './components/layout/AppRail';
+import LivingOrb from './components/ui/LivingOrb';
 import ThinkingPhrase from './components/ui/ThinkingPhrase';
 import { AssistantMessage } from './components/ui/ABComparison';
 import ABComparison from './components/ui/ABComparison';
@@ -16,14 +18,33 @@ import './App.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
 const WELCOME_MESSAGES = [
-  "How can I help you today?",
-  "What's on your mind?",
-  "Ready when you are.",
+  "Good morning.",
+  "Good afternoon.",
+  "Good evening.",
   "What are we working on?",
-  "Ask me anything.",
-  "What do you need?",
-  "What can I help you with?",
+  "Ready when you are.",
 ];
+
+const AGENT_SUGGESTIONS = {
+  jarvis: [
+    { label: 'What\'s on my calendar today?',  sigil: '📅' },
+    { label: 'Remind me to...',                sigil: '🔔' },
+    { label: 'Check my finances',              sigil: '💰' },
+    { label: 'Set a savings goal',             sigil: '🎯' },
+  ],
+  friday: [
+    { label: 'Debug this code',                sigil: '🐛' },
+    { label: 'Explain like I\'m 5',            sigil: '💡' },
+    { label: 'Write a summary',                sigil: '📝' },
+    { label: 'Compare my options',             sigil: '⚖️' },
+  ],
+  tutor: [
+    { label: 'Quiz me on this topic',          sigil: '🧠' },
+    { label: 'Explain the key concepts',       sigil: '📖' },
+    { label: 'Give me an exam question',       sigil: '✏️' },
+    { label: 'What should I study next?',      sigil: '🗺️' },
+  ],
+};
 
 function App() {
   const {
@@ -52,6 +73,8 @@ function App() {
     setAbTarget,
     financeError,
     view,
+    contextChips,
+    contextContinue,
     fileInputRef,
     messagesEndRef,
     searchInputRef,
@@ -71,27 +94,52 @@ function App() {
     cancelRequest,
     sendMessage,
     handleKeyDown,
+    regenerate,
   } = useChat();
 
   const currentAgent = AGENTS[agent];
   const [newsInArticle, setNewsInArticle] = useState(false);
 
-  // ── Real viewport height — recalculates on resume so iOS PWA bar stays gone ──
+  // ── Real viewport height + keyboard offset ───────────────────────────────────
+  // Uses visualViewport when available so the layout tracks the area ABOVE the
+  // soft keyboard, not the full layout viewport. Resets any iOS scroll drift on
+  // keyboard dismiss so the page never stays stuck above where the keyboard was.
   useEffect(() => {
-    const setVh = () => {
-      document.documentElement.style.setProperty('--real-vh', `${window.innerHeight}px`);
+    const vv = window.visualViewport;
+
+    const update = () => {
+      const h = vv ? vv.height : window.innerHeight;
+      // Offset from viewport top — non-zero when browser chrome scrolls the
+      // page to focus an input; we use this to keep the composer glued to the
+      // visible bottom rather than the layout bottom.
+      const off = vv ? vv.offsetTop : 0;
+      document.documentElement.style.setProperty('--real-vh', `${h}px`);
+      document.documentElement.style.setProperty('--vv-offset-top', `${off}px`);
+      // Reset iOS scroll drift when keyboard closes (offset returns to ~0)
+      if (off === 0 && window.scrollY !== 0) window.scrollTo(0, 0);
     };
-    // iOS hasn't finished restoring the viewport at visibilitychange/pageshow,
-    // so we set immediately and again after it settles.
-    const setVhAfterSettle = () => { setVh(); setTimeout(setVh, 120); };
-    setVh();
-    window.addEventListener('resize', setVh);
-    document.addEventListener('visibilitychange', setVhAfterSettle);
-    window.addEventListener('pageshow', setVhAfterSettle);
+
+    const settle = () => { update(); setTimeout(update, 100); setTimeout(update, 350); };
+
+    update();
+    if (vv) {
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+    } else {
+      window.addEventListener('resize', update);
+    }
+    document.addEventListener('visibilitychange', settle);
+    window.addEventListener('pageshow', settle);
+
     return () => {
-      window.removeEventListener('resize', setVh);
-      document.removeEventListener('visibilitychange', setVhAfterSettle);
-      window.removeEventListener('pageshow', setVhAfterSettle);
+      if (vv) {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+      } else {
+        window.removeEventListener('resize', update);
+      }
+      document.removeEventListener('visibilitychange', settle);
+      window.removeEventListener('pageshow', settle);
     };
   }, []);
 
@@ -100,9 +148,13 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
     localStorage.getItem('zc_sidebar_collapsed') === 'true'
   );
-  const [welcomeMsg] = useState(
-    () => WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)]
-  );
+  const [welcomeMsg] = useState(() => {
+    const h = new Date().getHours();
+    if (h < 5)  return 'Good evening.';
+    if (h < 12) return 'Good morning.';
+    if (h < 18) return 'Good afternoon.';
+    return 'Good evening.';
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentDropOpen, setAgentDropOpen] = useState(false);
 
@@ -198,8 +250,8 @@ function App() {
 
       {/* ── Floating action buttons ── */}
 
-      {/* Hamburger: chat always; news feed only (not when article open) */}
-      {(view === 'chat' || (view === 'news' && !newsInArticle)) && (
+      {/* Hamburger: always visible (mobile nav for all views) */}
+      {(view !== 'news' || !newsInArticle) && (
         <button
           className="fab-sidebar-open floating-fab"
           onClick={() => setSidebarOpen(true)}
@@ -209,7 +261,7 @@ function App() {
         </button>
       )}
 
-      {/* Desktop re-expand: same condition as hamburger */}
+      {/* Desktop re-expand: chat + news only */}
       {(view === 'chat' || (view === 'news' && !newsInArticle)) && (
         <button
           className="fab-sidebar-expand floating-fab"
@@ -231,6 +283,20 @@ function App() {
         </button>
       )}
 
+      {/* Mobile back-to-chat: non-chat app views only */}
+      {view !== 'chat' && (
+        <button
+          className="fab-back-chat floating-fab"
+          onClick={() => navigateTo('chat')}
+          title="Back to chat"
+        >
+          <span className="material-symbols-outlined">chat</span>
+        </button>
+      )}
+
+      {/* ── APP RAIL (desktop) ── */}
+      <AppRail view={view} navigateTo={navigateTo} />
+
       {/* ── SIDEBAR ── */}
       <Sidebar
         sidebarOpen={sidebarOpen}
@@ -251,6 +317,7 @@ function App() {
         navigateTo={navigateTo}
         financeError={financeError}
         currentAgent={currentAgent}
+        agent={agent}
         onCollapse={toggleSidebarCollapsed}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -281,12 +348,19 @@ function App() {
 
             {messages.length === 0 && (
               <div className="empty-state">
-                <h2 className="welcome-heading">{welcomeMsg}</h2>
-                <p className="welcome-sub">Powered by {currentAgent.name} · {currentAgent.model}</p>
-                <div className="welcome-chips">
-                  {['Explain quantum computing', 'Write a Python script', 'Help me plan my week', "What's the best way to learn design?"].map(prompt => (
-                    <button key={prompt} className="welcome-chip" onClick={() => setInput(prompt)}>
-                      {prompt}
+                <div className="empty-mark">
+                  <LivingOrb size={18} state={agent === 'friday' ? 'friday' : agent === 'tutor' ? 'tutor' : 'idle'} />
+                  <span className="empty-agent-label">{currentAgent.name} · Listening</span>
+                </div>
+                <h2 className="welcome-heading">
+                  {welcomeMsg} <span className="accent">How can I help?</span>
+                </h2>
+                <p className="welcome-sub">{currentAgent.model}</p>
+                <div className="sugg-grid">
+                  {(AGENT_SUGGESTIONS[agent] || AGENT_SUGGESTIONS.jarvis).map(s => (
+                    <button key={s.label} className="sugg-tile" onClick={() => setInput(s.label)}>
+                      <span className="sugg-tile-icon">{s.sigil}</span>
+                      <span className="sugg-tile-label">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -298,11 +372,11 @@ function App() {
 
                 {msg.role === 'assistant' && (
                   <>
-                    <div className="assistant-card">
+                    <div className="assistant-card" data-agent={msg.agent || currentAgent.name}>
                       <div className="card-header">
-                        <div className="card-header-dot" />
+                        <LivingOrb size={10} state={msg.tutor_mode ? 'tutor' : (msg.agent || currentAgent.name) === 'Friday' ? 'friday' : 'idle'} />
                         <span className="card-header-name">{msg.agent || currentAgent.name}</span>
-                        {msg.model && <span className="model-pill">{msg.model}</span>}
+                        {msg.model && <span className={`model-pill${(msg.agent || currentAgent.name) === 'Friday' ? ' model-pill--friday' : ''}`}>{msg.model}</span>}
                         <div className="meta-badges">
                           {msg.web_search_used   && <span className="meta-badge search">🔍 web</span>}
                           {msg.tutor_mode        && <span className="meta-badge tutor">🎓 tutor mode</span>}
@@ -317,12 +391,26 @@ function App() {
                       <div className="card-body">
                         <AssistantMessage content={msg.content} image_urls={msg.image_urls} />
                       </div>
+                      {msg.sources?.length > 0 && (
+                        <div className="sources-strip">
+                          {msg.sources.map((s, si) => (
+                            <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="source-pill">
+                              <span className="material-symbols-outlined source-pill-icon">link</span>
+                              {s.title}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       <div className="card-actions">
                         <button className="card-action-btn" onClick={() => { try { navigator.clipboard.writeText(msg.content); } catch(e) {} }}>
                           <span className="material-symbols-outlined">content_copy</span>
                           Copy
                         </button>
-                        {['up', 'down'].map(dir => (
+                        <button className="card-action-btn" onClick={regenerate}>
+                          <span className="material-symbols-outlined">refresh</span>
+                          Regenerate
+                        </button>
+                        {[{dir:'up',label:'Helpful'},{dir:'down',label:'Not quite'}].map(({dir,label}) => (
                           <button
                             key={dir}
                             className={`card-action-btn${msg.rating === dir ? ' card-action-btn--rated' : ''}`}
@@ -340,14 +428,25 @@ function App() {
                               }).catch(() => {});
                             }}
                           >
-                            <span className="material-symbols-outlined">
-                              {dir === 'up'
-                                ? (msg.rating === 'up' ? 'thumb_up' : 'thumb_up')
-                                : (msg.rating === 'down' ? 'thumb_down' : 'thumb_down')}
-                            </span>
+                            <span className="material-symbols-outlined">{dir === 'up' ? 'thumb_up' : 'thumb_down'}</span>
+                            {label}
                           </button>
                         ))}
+                        <button className="card-action-btn" onClick={() => {
+                          const text = `${msg._userText ? msg._userText + '\n\n' : ''}${msg.content}`;
+                          if (navigator.share) { navigator.share({ text }); }
+                          else { try { navigator.clipboard.writeText(text); } catch(e) {} }
+                        }}>
+                          <span className="material-symbols-outlined">share</span>
+                          Share
+                        </button>
                       </div>
+                      {msg.continue_suggestion && (
+                        <button className="continue-suggestion" onClick={() => setInput(msg.continue_suggestion)}>
+                          <span className="material-symbols-outlined">arrow_forward</span>
+                          Continue — <em>{msg.continue_suggestion}</em>
+                        </button>
+                      )}
                     </div>
                     {msg.tks != null && (
                       <div className="tks-line">{Math.round(msg.tks)} tok/s</div>
@@ -384,9 +483,9 @@ function App() {
 
             {isLoading && (
               <div className="msg-row msg-assistant">
-                <div className="assistant-card">
+                <div className="assistant-card" data-agent={currentAgent.name}>
                   <div className="card-header">
-                    <div className="card-header-dot" />
+                    <LivingOrb size={10} state={currentAgent.name === 'Friday' ? 'friday-thinking' : 'thinking'} />
                     <span className="card-header-name">{currentAgent.name}</span>
                     {streamState && streamState.tks > 0 && (
                       <span className="tks-badge">{Math.round(streamState.tks)} tok/s</span>
@@ -422,7 +521,32 @@ function App() {
             onChange={handleFileChange}
           />
           <div className="input-pill-wrap">
-            <div className="input-pill">
+            {!input.trim() && !isLoading && (
+              <div className="composer-suggestions">
+                {contextChips.length > 0
+                  ? contextChips.map(chip => (
+                    <button
+                      key={chip}
+                      className={`composer-sugg-chip composer-sugg-chip--${agent} composer-sugg-chip--context`}
+                      onClick={() => setInput(chip)}
+                    >
+                      {chip}
+                    </button>
+                  ))
+                  : (AGENT_SUGGESTIONS[agent] || AGENT_SUGGESTIONS.jarvis).map(s => (
+                    <button
+                      key={s.label}
+                      className={`composer-sugg-chip composer-sugg-chip--${agent}`}
+                      onClick={() => setInput(s.label)}
+                    >
+                      <span className="sugg-chip-icon">{s.sigil}</span>
+                      {s.label}
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+            <div className={`input-pill${agent === 'friday' ? ' input-pill--friday' : agent === 'tutor' ? ' input-pill--tutor' : ''}`}>
               {attachedFiles.length > 0 && (
                 <div className="attachment-chips">
                   {attachedFiles.map((f, i) => (

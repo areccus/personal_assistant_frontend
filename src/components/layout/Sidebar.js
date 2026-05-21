@@ -1,4 +1,5 @@
 import React from 'react';
+import LivingOrb from '../ui/LivingOrb';
 import ChatItem from '../chat/ChatItem';
 
 export function formatChatName(name) {
@@ -48,6 +49,7 @@ function Sidebar({
   navigateTo,
   financeError,
   currentAgent,
+  agent,
   onCollapse,
   onOpenSettings,
 }) {
@@ -58,10 +60,10 @@ function Sidebar({
       <div className="sidebar-header">
         <div className="sidebar-brand">
           <div className="brand-mark">
-            <div className="brand-orb" />
+            <LivingOrb size={24} state={agent === 'friday' ? 'friday' : agent === 'tutor' ? 'tutor' : 'idle'} />
             <div>
               <div className="brand-name">Intelligence</div>
-              <div className="brand-sub">AI Assistant</div>
+              <div className="brand-sub">Personal Assistant</div>
             </div>
           </div>
           <button
@@ -74,13 +76,17 @@ function Sidebar({
         </div>
 
         <button className="new-chat-btn" onClick={startNewChat}>
-          <span className="material-symbols-outlined">add</span>
-          New Chat
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="material-symbols-outlined">edit_note</span>
+            New conversation
+          </span>
+          <span className="new-chat-kbd">⌘ N</span>
         </button>
 
         <button className="search-chats-btn" onClick={() => setSearchOpen(true)}>
           <span className="material-symbols-outlined">search</span>
-          Search Chats
+          Search conversations
+          <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-dim)' }}>⌘ K</span>
         </button>
 
         <div className="chat-list-label">Recent Chats</div>

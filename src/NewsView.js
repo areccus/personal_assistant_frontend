@@ -2,26 +2,66 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
-const PTR_THRESHOLD = 34;   // eased px needed to trigger (raw ~62px)
-const PTR_MAX      = 80;
+const PTR_THRESHOLD = 34;
+const PTR_MAX       = 80;
 
 function getDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); }
   catch { return ''; }
 }
 
+/* ── Political lean badge ────────────────────────────────────── */
+const LEAN_META = {
+  'left':       { label: 'Left',       cls: 'lean-left' },
+  'lean-left':  { label: 'Lean Left',  cls: 'lean-left-soft' },
+  'center':     { label: 'Center',     cls: 'lean-center' },
+  'lean-right': { label: 'Lean Right', cls: 'lean-right-soft' },
+  'right':      { label: 'Right',      cls: 'lean-right' },
+};
+
+function LeanBadge({ lean }) {
+  const meta = LEAN_META[lean];
+  if (!meta) return null;
+  return <span className={`lean-badge ${meta.cls}`}>{meta.label}</span>;
+}
+
 /* ── Article detail ─────────────────────────────────────────── */
 function ArticleDetail({ article, onClose }) {
-  const [imgFailed, setImgFailed] = useState(false);
+  const [imgFailed, setImgFailed]   = useState(false);
+  const [summary,   setSummary]     = useState(null);
+  const [impact,    setImpact]      = useState(null);
+  const [loadingAI, setLoadingAI]   = useState(false);
   const domain = getDomain(article.url);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingAI(true);
+    fetch(`${API_URL}/news/article`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ title: article.title, snippet: article.snippet || '' }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        setSummary(d.summary || null);
+        setImpact(d.impact  || null);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingAI(false); });
+    return () => { cancelled = true; };
+  }, [article.title, article.snippet]);
 
   return (
     <div className="news-detail-view">
       <div className="news-detail-header">
-        <button className="back-btn" onClick={onClose}>
+        <button className="news-article-back" onClick={onClose}>
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
-        {domain && <span className="news-detail-domain">{domain}</span>}
+        <div className="news-detail-header-meta">
+          {domain && <span className="news-detail-domain">{domain}</span>}
+          <LeanBadge lean={article.lean} />
+        </div>
       </div>
 
       <div className="news-detail-body">
@@ -41,12 +81,30 @@ function ArticleDetail({ article, onClose }) {
           <h2 className="news-detail-title">{article.title}</h2>
           {domain && <p className="news-detail-meta">{domain}</p>}
 
-          {article.snippet && (
+          <div className="news-detail-divider" />
+
+          {loadingAI ? (
+            <div className="news-ai-loading">
+              <span className="material-symbols-outlined spinning">progress_activity</span>
+              <span>Summarizing…</span>
+            </div>
+          ) : summary ? (
             <>
-              <div className="news-detail-divider" />
-              <p className="news-detail-text">{article.snippet}</p>
+              <p className="news-detail-text">{summary}</p>
+
+              {impact && (
+                <div className="news-impact-block">
+                  <div className="news-impact-label">
+                    <span className="material-symbols-outlined">person</span>
+                    Does this affect you?
+                  </div>
+                  <p className="news-impact-text">{impact}</p>
+                </div>
+              )}
             </>
-          )}
+          ) : article.snippet ? (
+            <p className="news-detail-text">{article.snippet}</p>
+          ) : null}
 
           <a
             href={article.url}
@@ -63,8 +121,38 @@ function ArticleDetail({ article, onClose }) {
   );
 }
 
-/* ── Hero card (featured / first per category) ──────────────── */
-function HeroCard({ article, onOpen }) {
+/* ── Category placeholder colors ────────────────────────────── */
+const CATEGORY_GRADIENTS = {
+  'Top Stories':   'linear-gradient(135deg, #1e3a5f, #0f2540)',
+  'US & Politics': 'linear-gradient(135deg, #3b1f5e, #1e0f3a)',
+  'World':         'linear-gradient(135deg, #0f3d2e, #071f18)',
+  'Technology':    'linear-gradient(135deg, #003d4d, #001e26)',
+  'Business':      'linear-gradient(135deg, #2d2a00, #1a1800)',
+  'Sports':        'linear-gradient(135deg, #3d1a00, #1f0d00)',
+  'Science':       'linear-gradient(135deg, #1a0d3d, #0d0720)',
+};
+const CATEGORY_ICONS = {
+  'Top Stories':   'breaking_news',
+  'US & Politics': 'account_balance',
+  'World':         'public',
+  'Technology':    'memory',
+  'Business':      'trending_up',
+  'Sports':        'sports',
+  'Science':       'science',
+};
+
+function NoImage({ category, size = 'hero' }) {
+  const bg   = CATEGORY_GRADIENTS[category] || 'linear-gradient(135deg, #1a1a2e, #0d0d1a)';
+  const icon = CATEGORY_ICONS[category]     || 'newspaper';
+  return (
+    <div className={`news-${size}-noimg`} style={{ background: bg }}>
+      <span className="material-symbols-outlined">{icon}</span>
+    </div>
+  );
+}
+
+/* ── Hero card ───────────────────────────────────────────────── */
+function HeroCard({ article, onOpen, category }) {
   const [imgFailed, setImgFailed] = useState(false);
   const domain = getDomain(article.url);
 
@@ -78,12 +166,13 @@ function HeroCard({ article, onOpen }) {
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <div className="news-hero-noimg">
-          <span className="material-symbols-outlined">newspaper</span>
-        </div>
+        <NoImage category={category} size="hero" />
       )}
       <div className="news-hero-body">
-        {domain && <span className="news-hero-source">{domain}</span>}
+        <div className="news-hero-source-row">
+          {domain && <span className="news-hero-source">{domain}</span>}
+          <LeanBadge lean={article.lean} />
+        </div>
         <h3 className="news-hero-headline">{article.title}</h3>
         {article.snippet && (
           <p className="news-hero-excerpt">{article.snippet}</p>
@@ -93,8 +182,8 @@ function HeroCard({ article, onOpen }) {
   );
 }
 
-/* ── Compact card (remaining articles) ──────────────────────── */
-function CompactCard({ article, onOpen }) {
+/* ── Compact card ────────────────────────────────────────────── */
+function CompactCard({ article, onOpen, category }) {
   const [imgFailed, setImgFailed] = useState(false);
   const domain = getDomain(article.url);
 
@@ -108,12 +197,13 @@ function CompactCard({ article, onOpen }) {
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <div className="news-compact-nothumb">
-          <span className="material-symbols-outlined">article</span>
-        </div>
+        <NoImage category={category} size="compact" />
       )}
       <div className="news-compact-body">
-        {domain && <span className="news-compact-source">{domain}</span>}
+        <div className="news-compact-source-row">
+          {domain && <span className="news-compact-source">{domain}</span>}
+          <LeanBadge lean={article.lean} />
+        </div>
         <h4 className="news-compact-headline">{article.title}</h4>
         {article.snippet && (
           <p className="news-compact-excerpt">{article.snippet}</p>
@@ -131,11 +221,11 @@ function NewsSection({ category, onOpen }) {
   return (
     <section className="news-section">
       <h2 className="news-section-title">{category.name}</h2>
-      <HeroCard article={hero} onOpen={() => onOpen(hero, category.name)} />
+      <HeroCard article={hero} category={category.name} onOpen={() => onOpen(hero, category.name)} />
       {rest.length > 0 && (
         <div className="news-compact-list">
           {rest.map((a, i) => (
-            <CompactCard key={i} article={a} onOpen={() => onOpen(a, category.name)} />
+            <CompactCard key={i} article={a} category={category.name} onOpen={() => onOpen(a, category.name)} />
           ))}
         </div>
       )}
@@ -145,22 +235,21 @@ function NewsSection({ category, onOpen }) {
 
 /* ── Main news feed ─────────────────────────────────────────── */
 function NewsView({ onBack, onArticleChange }) {
-  const [digest, setDigest]         = useState(null);
-  const [loading, setLoading]       = useState(true);
+  const [digest,     setDigest]     = useState(null);
+  const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]           = useState(null);
-  const [selected, setSelected]     = useState(null);   // { ...article, category }
-  const [pullY, setPullY]           = useState(0);
+  const [error,      setError]      = useState(null);
+  const [selected,   setSelected]   = useState(null);
+  const [pullY,      setPullY]      = useState(0);
 
   const bodyRef       = useRef(null);
   const refreshingRef = useRef(false);
   const pullYRef      = useRef(0);
   const handleRefRef  = useRef(null);
 
-  /* ── data ── */
   const loadDigest = useCallback(async () => {
     try {
-      const res  = await fetch(`${API_URL}/news`);
+      const res  = await fetch(`${API_URL}/news`, { cache: 'no-store' });
       const data = await res.json();
       setDigest(data.content ? data : null);
       setError(null);
@@ -193,39 +282,31 @@ function NewsView({ onBack, onArticleChange }) {
 
   useEffect(() => { handleRefRef.current = handleRefresh; }, [handleRefresh]);
 
-  /* ── pull-to-refresh ── */
+  /* pull-to-refresh */
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
-
-    let startY = 0;
-    let active = false;
+    let startY = 0, active = false;
 
     const onStart = (e) => {
       if (el.scrollTop === 0) { startY = e.touches[0].clientY; active = true; }
     };
-
     const onMove = (e) => {
       if (!active) return;
       const dy = e.touches[0].clientY - startY;
       if (dy > 4 && el.scrollTop === 0) {
         e.preventDefault();
-        const eased = dy < 62
-          ? dy * 0.55
-          : 62 * 0.55 + (dy - 62) * 0.18;
+        const eased = dy < 62 ? dy * 0.55 : 62 * 0.55 + (dy - 62) * 0.18;
         const v = Math.min(eased, PTR_MAX);
-        pullYRef.current = v;
-        setPullY(v);
+        pullYRef.current = v; setPullY(v);
       } else if (dy <= 0) {
         active = false; pullYRef.current = 0; setPullY(0);
       }
     };
-
     const onEnd = () => {
       active = false;
       if (pullYRef.current >= PTR_THRESHOLD) handleRefRef.current?.();
-      pullYRef.current = 0;
-      setPullY(0);
+      pullYRef.current = 0; setPullY(0);
     };
 
     el.addEventListener('touchstart', onStart, { passive: true });
@@ -238,7 +319,6 @@ function NewsView({ onBack, onArticleChange }) {
     };
   }, []);
 
-  /* ── article open/close ── */
   const openArticle = (article, category) => {
     setSelected({ ...article, category });
     onArticleChange?.(true);
@@ -268,7 +348,6 @@ function NewsView({ onBack, onArticleChange }) {
 
   return (
     <div className="news-view">
-      {/* Desktop header — hidden on mobile via CSS */}
       <div className="news-header">
         <button className="back-btn" onClick={onBack}>
           <span className="material-symbols-outlined">arrow_back</span>
@@ -290,11 +369,7 @@ function NewsView({ onBack, onArticleChange }) {
       </div>
 
       <div className="news-body" ref={bodyRef}>
-        {/* Pull-to-refresh indicator */}
-        <div
-          className="ptr-wrap"
-          style={{ height: ptrHeight, opacity: ptrOpacity }}
-        >
+        <div className="ptr-wrap" style={{ height: ptrHeight, opacity: ptrOpacity }}>
           <span className={`material-symbols-outlined${ptrSpin ? ' spinning' : ''}`}>
             {refreshing ? 'progress_activity' : 'arrow_downward'}
           </span>
